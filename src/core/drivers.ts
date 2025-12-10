@@ -1,0 +1,344 @@
+/**
+ * ORBITA - Driver Registry
+ * Registro estático de drivers de hardware com código MicroPython embutido
+ */
+
+import { HardwareDriver, HardwareCategory, DataType } from './types';
+
+/**
+ * Registro global de drivers disponíveis
+ */
+export const DRIVER_REGISTRY: Record<string, HardwareDriver> = {
+    // ==================== SENSORES ====================
+
+    data_generator: {
+        id: 'data_generator',
+        name: 'Gerador de Dados',
+        category: HardwareCategory.SENSOR,
+        description: 'Gera valores numéricos simulados (útil para testes)',
+        icon: 'Waveform',
+
+        inputs: [],
+        outputs: [
+            { id: 'value', label: 'Valor', type: DataType.NUMBER }
+        ],
+
+        parameters: [
+            { id: 'min', label: 'Valor Mínimo', type: 'number', default: 0, min: -1000, max: 1000 },
+            { id: 'max', label: 'Valor Máximo', type: 'number', default: 100, min: -1000, max: 1000 },
+            { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 1000, min: 100, max: 10000 }
+        ],
+
+        code: {
+            imports: ['import urandom', 'import time'],
+            setupCode: '{{var_name}}_last_time = time.ticks_ms()',
+            loopCode: `
+if time.ticks_diff(time.ticks_ms(), {{var_name}}_last_time) >= {{interval}}:
+    {{var_name}} = urandom.uniform({{min}}, {{max}})
+    {{var_name}}_last_time = time.ticks_ms()
+`.trim()
+        }
+    },
+
+    temperature_sensor: {
+        id: 'temperature_sensor',
+        name: 'Sensor de Temperatura',
+        category: HardwareCategory.SENSOR,
+        description: 'Lê temperatura de um sensor DHT11/DHT22',
+        icon: 'Thermometer',
+
+        inputs: [],
+        outputs: [
+            { id: 'temperature', label: 'Temperatura', type: DataType.NUMBER },
+            { id: 'humidity', label: 'Umidade', type: DataType.NUMBER }
+        ],
+
+        parameters: [
+            { id: 'pin', label: 'Pino GPIO', type: 'number', default: 4, min: 0, max: 39 },
+            {
+                id: 'sensor_type',
+                label: 'Tipo de Sensor',
+                type: 'select',
+                default: 'DHT11',
+                options: [
+                    { value: 'DHT11', label: 'DHT11' },
+                    { value: 'DHT22', label: 'DHT22' }
+                ]
+            },
+            { id: 'interval', label: 'Intervalo de Leitura (ms)', type: 'number', default: 2000, min: 500, max: 60000 }
+        ],
+
+        code: {
+            imports: ['from machine import Pin', 'import dht', 'import time'],
+            setupCode: `
+{{var_name}}_sensor = dht.DHT{{sensor_type}}(Pin({{pin}}))
+{{var_name}}_last_read = 0
+{{var_name}}_temp = 0
+{{var_name}}_hum = 0
+`.trim(),
+            loopCode: `
+if time.ticks_diff(time.ticks_ms(), {{var_name}}_last_read) >= {{interval}}:
+    try:
+        {{var_name}}_sensor.measure()
+        {{var_name}}_temp = {{var_name}}_sensor.temperature()
+        {{var_name}}_hum = {{var_name}}_sensor.humidity()
+        {{var_name}}_last_read = time.ticks_ms()
+    except Exception as e:
+        print("Erro DHT:", e)
+`.trim()
+        }
+    },
+
+    // ==================== ATUADORES ====================
+
+    led_output: {
+        id: 'led_output',
+        name: 'LED',
+        category: HardwareCategory.ACTUATOR,
+        description: 'Controla um LED digital com condições opcionais',
+        icon: 'Lightbulb',
+
+        inputs: [
+            { id: 'temperature', label: 'Temperatura', type: DataType.NUMBER },
+            { id: 'humidity', label: 'Umidade', type: DataType.NUMBER },
+            { id: 'value', label: 'Valor Genérico', type: DataType.NUMBER },
+            { id: 'state', label: 'Estado Direto', type: DataType.BOOLEAN }
+        ],
+        outputs: [],
+
+        parameters: [
+            { id: 'pin', label: 'Pino GPIO', type: 'number', default: 2, min: 0, max: 39 }
+        ],
+
+        dynamicParameters: [
+            {
+                inputId: 'temperature',
+                parameters: [
+                    {
+                        id: 'temp_operator',
+                        label: 'Condição de Temperatura',
+                        type: 'select',
+                        default: '>',
+                        options: [
+                            { value: '>', label: 'Maior que (>)' },
+                            { value: '<', label: 'Menor que (<)' },
+                            { value: '>=', label: 'Maior ou igual (>=)' },
+                            { value: '<=', label: 'Menor ou igual (<=)' },
+                            { value: '==', label: 'Igual (==)' }
+                        ]
+                    },
+                    {
+                        id: 'temp_threshold',
+                        label: 'Limite de Temperatura (°C)',
+                        type: 'number',
+                        default: 30,
+                        min: -50,
+                        max: 100
+                    }
+                ]
+            },
+            {
+                inputId: 'humidity',
+                parameters: [
+                    {
+                        id: 'hum_operator',
+                        label: 'Condição de Umidade',
+                        type: 'select',
+                        default: '>',
+                        options: [
+                            { value: '>', label: 'Maior que (>)' },
+                            { value: '<', label: 'Menor que (<)' },
+                            { value: '>=', label: 'Maior ou igual (>=)' },
+                            { value: '<=', label: 'Menor ou igual (<=)' },
+                            { value: '==', label: 'Igual (==)' }
+                        ]
+                    },
+                    {
+                        id: 'hum_threshold',
+                        label: 'Limite de Umidade (%)',
+                        type: 'number',
+                        default: 60,
+                        min: 0,
+                        max: 100
+                    }
+                ]
+            },
+            {
+                inputId: 'value',
+                parameters: [
+                    {
+                        id: 'value_operator',
+                        label: 'Condição do Valor',
+                        type: 'select',
+                        default: '>',
+                        options: [
+                            { value: '>', label: 'Maior que (>)' },
+                            { value: '<', label: 'Menor que (<)' },
+                            { value: '>=', label: 'Maior ou igual (>=)' },
+                            { value: '<=', label: 'Menor ou igual (<=)' },
+                            { value: '==', label: 'Igual (==)' }
+                        ]
+                    },
+                    {
+                        id: 'value_threshold',
+                        label: 'Valor Limite',
+                        type: 'number',
+                        default: 50,
+                        min: -1000,
+                        max: 1000
+                    }
+                ]
+            }
+        ],
+
+        code: {
+            imports: ['from machine import Pin'],
+            setupCode: '{{var_name}}_led = Pin({{pin}}, Pin.OUT)',
+            loopCode: `
+# Avalia condições baseadas nas entradas conectadas
+led_should_be_on = False
+
+{{#if input_temperature}}
+if {{input_temperature}} {{temp_operator}} {{temp_threshold}}:
+    led_should_be_on = True
+{{/if}}
+
+{{#if input_humidity}}
+if {{input_humidity}} {{hum_operator}} {{hum_threshold}}:
+    led_should_be_on = True
+{{/if}}
+
+{{#if input_value}}
+if {{input_value}} {{value_operator}} {{value_threshold}}:
+    led_should_be_on = True
+{{/if}}
+
+{{#if input_state}}
+led_should_be_on = bool({{input_state}})
+{{/if}}
+
+{{var_name}}_led.value(1 if led_should_be_on else 0)
+`.trim()
+        }
+    },
+
+    print_log: {
+        id: 'print_log',
+        name: 'Console Log',
+        category: HardwareCategory.ACTUATOR,
+        description: 'Imprime valores no console serial',
+        icon: 'Terminal',
+
+        inputs: [
+            { id: 'value', label: 'Valor', type: DataType.ANY }
+        ],
+        outputs: [],
+
+        parameters: [
+            { id: 'prefix', label: 'Prefixo', type: 'string', default: 'DATA' }
+        ],
+
+        code: {
+            imports: [],
+            setupCode: '',
+            loopCode: 'print("{{prefix}}:", {{input_value}})'
+        }
+    },
+
+    // ==================== LÓGICA ====================
+
+    comparator: {
+        id: 'comparator',
+        name: 'Comparador',
+        category: HardwareCategory.LOGIC,
+        description: 'Compara dois valores (>, <, ==, !=)',
+        icon: 'GitCompare',
+
+        inputs: [
+            { id: 'a', label: 'A', type: DataType.NUMBER },
+            { id: 'b', label: 'B', type: DataType.NUMBER }
+        ],
+        outputs: [
+            { id: 'result', label: 'Resultado', type: DataType.BOOLEAN }
+        ],
+
+        parameters: [
+            {
+                id: 'operator',
+                label: 'Operador',
+                type: 'select',
+                default: '>',
+                options: [
+                    { value: '>', label: 'Maior que (>)' },
+                    { value: '<', label: 'Menor que (<)' },
+                    { value: '==', label: 'Igual (==)' },
+                    { value: '!=', label: 'Diferente (!=)' },
+                    { value: '>=', label: 'Maior ou igual (>=)' },
+                    { value: '<=', label: 'Menor ou igual (<=)' }
+                ]
+            }
+        ],
+
+        code: {
+            imports: [],
+            setupCode: '',
+            loopCode: '{{var_name}} = {{input_a}} {{operator}} {{input_b}}'
+        }
+    },
+
+    threshold: {
+        id: 'threshold',
+        name: 'Limiar',
+        category: HardwareCategory.LOGIC,
+        description: 'Ativa saída quando entrada ultrapassa limiar',
+        icon: 'Gauge',
+
+        inputs: [
+            { id: 'value', label: 'Valor', type: DataType.NUMBER }
+        ],
+        outputs: [
+            { id: 'active', label: 'Ativo', type: DataType.BOOLEAN }
+        ],
+
+        parameters: [
+            { id: 'threshold', label: 'Valor Limite', type: 'number', default: 50 },
+            {
+                id: 'mode',
+                label: 'Modo',
+                type: 'select',
+                default: 'above',
+                options: [
+                    { value: 'above', label: 'Acima do limite' },
+                    { value: 'below', label: 'Abaixo do limite' }
+                ]
+            }
+        ],
+
+        code: {
+            imports: [],
+            setupCode: '',
+            loopCode: '{{var_name}} = {{input_value}} {{mode === "above" ? ">" : "<"}} {{threshold}}'
+        }
+    }
+};
+
+/**
+ * Obtém um driver pelo ID
+ */
+export function getDriver(driverId: string): HardwareDriver | undefined {
+    return DRIVER_REGISTRY[driverId];
+}
+
+/**
+ * Obtém todos os drivers de uma categoria
+ */
+export function getDriversByCategory(category: HardwareCategory): HardwareDriver[] {
+    return Object.values(DRIVER_REGISTRY).filter(d => d.category === category);
+}
+
+/**
+ * Lista todos os drivers disponíveis
+ */
+export function getAllDrivers(): HardwareDriver[] {
+    return Object.values(DRIVER_REGISTRY);
+}

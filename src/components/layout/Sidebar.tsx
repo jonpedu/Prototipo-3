@@ -1,133 +1,81 @@
-import React from 'react';
-import { Blocks, Code, Activity, Box, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useUIStore } from '../../stores/uiStore';
-import { TelemetryConsole } from '../telemetry/TelemetryConsole';
-import { TelemetryPlotter } from '../telemetry/TelemetryPlotter';
-import { DebugPanel } from '../telemetry/DebugPanel';
-import { useWebSerialStore } from '../../stores/webSerialStore';
-import { useBlocklyStore } from '../../stores/blocklyStore';
-import type { PanelTab } from '../../types';
+/**
+ * ORBITA - Sidebar
+ * Painel lateral com componentes disponíveis
+ */
 
-// ============================================================================
-// SIDEBAR - Barra lateral com abas
-// ============================================================================
+import React from 'react';
+import { Card } from '../ui/Card';
+import { getAllDrivers } from '../../core/drivers';
+import { HardwareCategory } from '../../core/types';
+import * as LucideIcons from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
-    const { activePanel, isSidebarCollapsed, setActivePanel, toggleSidebar } = useUIStore();
+    const drivers = getAllDrivers();
 
-    const tabs: Array<{ id: PanelTab; label: string; icon: React.ReactNode }> = [
-        { id: 'modules', label: 'Módulos', icon: <Box size={20} /> },
-        { id: 'inspector', label: 'Inspetor', icon: <Code size={20} /> },
-        { id: 'telemetry', label: 'Telemetria', icon: <Activity size={20} /> },
-        { id: 'console', label: 'Console', icon: <Blocks size={20} /> },
+    const categories = [
+        { id: HardwareCategory.SENSOR, label: 'Sensores', icon: 'Gauge' },
+        { id: HardwareCategory.ACTUATOR, label: 'Atuadores', icon: 'Lightbulb' },
+        { id: HardwareCategory.LOGIC, label: 'Lógica', icon: 'GitCompare' },
+        { id: HardwareCategory.COMMUNICATION, label: 'Comunicação', icon: 'Radio' }
     ];
 
+    const onDragStart = (event: React.DragEvent, driverId: string) => {
+        event.dataTransfer.setData('application/reactflow', driverId);
+        event.dataTransfer.effectAllowed = 'move';
+    };
+
     return (
-        <div
-            className={`bg-gray-900 border-r border-gray-800 flex flex-col transition-all duration-300 ${isSidebarCollapsed ? 'w-16' : 'w-80'
-                }`}
-        >
-            {/* Tabs Header */}
-            <div className="flex items-center border-b border-gray-800 h-12 px-2 gap-1">
-                {!isSidebarCollapsed &&
-                    tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActivePanel(tab.id)}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activePanel === tab.id
-                                ? 'bg-blue-600 text-white'
-                                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
-                                }`}
-                        >
-                            {tab.icon}
-                            <span>{tab.label}</span>
-                        </button>
-                    ))}
-
-                {/* Collapse Button */}
-                <button
-                    onClick={toggleSidebar}
-                    className="ml-auto p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
-                    aria-label={isSidebarCollapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
-                >
-                    {isSidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-                </button>
-            </div>
-
-            {/* Panel Content */}
-            {!isSidebarCollapsed && (
-                <div className="flex-1 overflow-y-auto p-4 flex flex-col">
-                    {activePanel === 'modules' && <ModulesPanel />}
-                    {activePanel === 'inspector' && <InspectorPanel />}
-                    {activePanel === 'telemetry' && <TelemetryPanel />}
-                    {activePanel === 'console' && <ConsolePanel />}
+        <div className="w-64 bg-gray-950 border-r border-gray-800 overflow-y-auto">
+            <div className="p-4 space-y-4">
+                <div className="text-center pb-2">
+                    <h2 className="text-lg font-semibold text-gray-200">Componentes</h2>
+                    <p className="text-xs text-gray-500 mt-1">Arraste para o canvas</p>
                 </div>
-            )}
-        </div>
-    );
-};
 
-// Painéis temporários (serão implementados em arquivos separados)
-const ModulesPanel: React.FC = () => {
-    return (
-        <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-100">Módulos de Hardware</h3>
-            <p className="text-sm text-gray-400">
-                Adicione módulos de hardware ao seu satélite clicando no botão abaixo.
-            </p>
-            <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
-                + Adicionar Módulo
-            </button>
-        </div>
-    );
-};
+                {categories.map(category => {
+                    const categoryDrivers = drivers.filter(d => d.category === category.id);
+                    if (categoryDrivers.length === 0) return null;
 
-const InspectorPanel: React.FC = () => {
-    const { generatedCode } = useBlocklyStore();
+                    const CategoryIcon = (LucideIcons as any)[category.icon] || LucideIcons.Box;
 
-    return (
-        <div className="space-y-4">
-            <div>
-                <h3 className="text-lg font-semibold text-gray-100">Inspetor de Código</h3>
-                <p className="text-sm text-gray-400">Código MicroPython gerado</p>
+                    return (
+                        <Card key={category.id} className="bg-gray-900/50">
+                            <div className="flex items-center gap-2 mb-3">
+                                <CategoryIcon className="w-5 h-5 text-gray-400" />
+                                <h3 className="text-sm font-semibold text-gray-300">{category.label}</h3>
+                            </div>
+
+                            <div className="space-y-2">
+                                {categoryDrivers.map(driver => {
+                                    const DriverIcon = (LucideIcons as any)[driver.icon] || LucideIcons.Box;
+
+                                    return (
+                                        <div
+                                            key={driver.id}
+                                            draggable
+                                            onDragStart={(e) => onDragStart(e, driver.id)}
+                                            className="
+                        flex items-center gap-2 p-2 rounded
+                        bg-gray-800/50 hover:bg-gray-700/50
+                        border border-gray-700 hover:border-gray-600
+                        cursor-grab active:cursor-grabbing
+                        transition-colors duration-150
+                      "
+                                        >
+                                            <DriverIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                            <div className="flex-grow min-w-0">
+                                                <div className="text-xs font-medium text-gray-300 truncate">
+                                                    {driver.name}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Card>
+                    );
+                })}
             </div>
-
-            <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 overflow-x-auto">
-                {generatedCode ? (
-                    <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
-                        {generatedCode}
-                    </pre>
-                ) : (
-                    <div className="text-center text-gray-500 py-8">
-                        <p>Nenhum código gerado ainda</p>
-                        <p className="text-xs mt-2">Adicione blocos no workspace</p>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-const TelemetryPanel: React.FC = () => {
-    const { telemetryData } = useWebSerialStore();
-
-    return (
-        <div className="space-y-4 h-full flex flex-col overflow-y-auto">
-            {telemetryData.length > 0 ? (
-                <TelemetryPlotter />
-            ) : (
-                <DebugPanel />
-            )}
-        </div>
-    );
-};  );
-};
-
-const ConsolePanel: React.FC = () => {
-    const { telemetryData } = useWebSerialStore();
-
-    return (
-        <div className="h-full flex flex-col">
-            <TelemetryConsole />
         </div>
     );
 };

@@ -1,36 +1,36 @@
+/**
+ * ORBITA - Aplicação Principal
+ */
+
 import React from 'react';
-import { Header } from './components/layout/Header';
+import { Toolbar } from './components/layout/Toolbar';
 import { Sidebar } from './components/layout/Sidebar';
-import { MainWorkspace } from './components/layout/MainWorkspace';
-import { BottomBar } from './components/layout/BottomBar';
-import { NotificationContainer } from './components/ui/NotificationContainer';
+import { Canvas } from './components/layout/Canvas';
+import { Inspector } from './components/layout/Inspector';
+import { Console } from './components/layout/Console';
 
-// ============================================================================
-// APP - Componente raiz da aplicação ORBITA
-// ============================================================================
-
-function App() {
+const App: React.FC = () => {
     return (
-        <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-950">
-            {/* Notificações Toast */}
-            <NotificationContainer />
-
-            {/* Header */}
-            <Header />
+        <div className="h-screen flex flex-col bg-gray-950 text-gray-100">
+            {/* Toolbar */}
+            <Toolbar />
 
             {/* Main Content */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-grow flex overflow-hidden">
                 {/* Sidebar */}
                 <Sidebar />
 
-                {/* Main Workspace (Blockly) */}
-                <MainWorkspace />
-            </div>
+                {/* Canvas */}
+                <div className="flex-grow flex flex-col">
+                    <Canvas />
+                    <Console />
+                </div>
 
-            {/* Bottom Bar */}
-            <BottomBar />
+                {/* Inspector */}
+                <Inspector />
+            </div>
         </div>
     );
-}
+};
 
 export default App;
