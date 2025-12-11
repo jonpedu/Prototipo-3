@@ -9,7 +9,8 @@ import {
     OrbitaEdge,
     SerialStatus,
     TelemetryMessage,
-    AppState
+    AppState,
+    HardwareProfileType
 } from '../core/types';
 import { serialBridge } from '../core/serial';
 import { transpiler } from '../core/transpiler';
@@ -29,6 +30,7 @@ interface OrbitaStore extends AppState {
     updateNodeData: (nodeId: string, data: Partial<OrbitaNode['data']>) => void;
     deleteNode: (nodeId: string) => void;
     deleteEdge: (edgeId: string) => void;
+    clearCanvas: () => void;
 
     // ==================== HARDWARE ACTIONS ====================
 
@@ -37,6 +39,12 @@ interface OrbitaStore extends AppState {
     uploadCode: () => Promise<void>;
     addTelemetryMessage: (message: TelemetryMessage) => void;
     clearTelemetry: () => void;
+    setHardwareProfile: (profile: HardwareProfileType) => void;
+
+    // ==================== PERSISTENCE ACTIONS ====================
+
+    saveMission: () => void;
+    loadMission: (data: string) => void;
 
     // ==================== UI ACTIONS ====================
 
@@ -64,6 +72,7 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
         serialStatus: SerialStatus.DISCONNECTED,
         telemetryMessages: [],
         lastCode: null,
+        hardwareProfile: HardwareProfileType.GENERIC_ESP32,
         isInspectorOpen: true,
         isConsoleOpen: true,
         isMockMode: import.meta.env.VITE_USE_MOCK === 'true',
@@ -135,6 +144,15 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
         deleteEdge: (edgeId) => {
             set({
                 edges: get().edges.filter(e => e.id !== edgeId)
+            });
+        },
+
+        clearCanvas: () => {
+            set({
+                nodes: [],
+                edges: [],
+                selectedNode: null,
+                lastCode: null
             });
         },
 
@@ -217,6 +235,75 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
 
         clearTelemetry: () => {
             set({ telemetryMessages: [] });
+        },
+
+        setHardwareProfile: (profile) => {
+            set({ hardwareProfile: profile });
+        },
+
+        // ==================== PERSISTENCE ACTIONS ====================
+
+        saveMission: () => {
+            const { nodes, edges, hardwareProfile } = get();
+            
+            const missionData = {
+                version: '2.0',
+                timestamp: new Date().toISOString(),
+                hardwareProfile,
+                nodes,
+                edges
+            };
+
+            const dataStr = JSON.stringify(missionData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `missao-${Date.now()}.orbita`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            get().addTelemetryMessage({
+                timestamp: Date.now(),
+                type: 'log',
+                content: '✓ Missão salva com sucesso'
+            });
+        },
+
+        loadMission: (data) => {
+            try {
+                const missionData = JSON.parse(data);
+                
+                // Validação básica
+                if (!missionData.nodes || !missionData.edges) {
+                    throw new Error('Arquivo inválido: estrutura incorreta');
+                }
+
+                // Limpa canvas atual
+                get().clearCanvas();
+
+                // Restaura estado
+                set({
+                    nodes: missionData.nodes,
+                    edges: missionData.edges,
+                    hardwareProfile: missionData.hardwareProfile || HardwareProfileType.GENERIC_ESP32
+                });
+
+                get().addTelemetryMessage({
+                    timestamp: Date.now(),
+                    type: 'log',
+                    content: `✓ Missão carregada (${missionData.nodes.length} componentes)`
+                });
+            } catch (error) {
+                get().addTelemetryMessage({
+                    timestamp: Date.now(),
+                    type: 'error',
+                    content: `✗ Erro ao carregar missão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+                });
+            }
         },
 
         // ==================== UI ACTIONS ====================
