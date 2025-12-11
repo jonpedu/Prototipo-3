@@ -85,6 +85,73 @@ export interface HardwareDriver {
     };
 }
 
+// ==================== LOGIC RULES ====================
+
+/**
+ * Operadores condicionais para regras lógicas
+ */
+export enum LogicOperator {
+    GREATER_THAN = '>',
+    LESS_THAN = '<',
+    GREATER_EQUAL = '>=',
+    LESS_EQUAL = '<=',
+    EQUAL = '==',
+    NOT_EQUAL = '!='
+}
+
+/**
+ * Ações que podem ser executadas quando uma condição é verdadeira
+ */
+export enum LogicAction {
+    TURN_ON = 'TURN_ON',
+    TURN_OFF = 'TURN_OFF',
+    SET_VALUE = 'SET_VALUE'
+}
+
+/**
+ * Regra lógica aplicada a um nó atuador
+ * Define condições baseadas em dados de sensores conectados
+ */
+export interface LogicRule {
+    sourceId: string;              // ID do nó de origem (sensor)
+    sourceType: string;            // Tipo do driver de origem (ex: "temperature_sensor")
+    sourceHandle: string;          // ID da porta de saída do sensor (ex: "temperature")
+    condition: LogicOperator;      // Operador de comparação
+    value: number;                 // Valor de comparação
+    action: LogicAction;           // Ação a executar
+}
+
+// ==================== HARDWARE PROFILES ====================
+
+/**
+ * Tipo de perfil de hardware
+ */
+export enum HardwareProfileType {
+    GENERIC_ESP32 = 'GENERIC_ESP32',
+    PION_CANSAT_V1 = 'PION_CANSAT_V1'
+}
+
+/**
+ * Mapeamento de componente para pino GPIO
+ */
+export interface PinMapping {
+    driverId: string;              // ID do driver (ex: "led_output")
+    pin: number;                   // Número do pino GPIO
+    label: string;                 // Nome amigável (ex: "LED Status")
+    locked: boolean;               // Se true, usuário não pode alterar
+}
+
+/**
+ * Perfil de hardware pré-configurado
+ */
+export interface HardwareProfile {
+    id: HardwareProfileType;
+    name: string;
+    description: string;
+    pinMappings: PinMapping[];
+    allowCustomPins: boolean;      // Se false, apenas pinos do perfil são permitidos
+}
+
 // ==================== ORBITA NODES ====================
 
 /**
@@ -99,6 +166,9 @@ export interface OrbitaNodeData extends Record<string, unknown> {
 
     // Variáveis geradas no transpile
     outputVariables?: Record<string, string>; // Ex: { temp: "sensor_temp_001" }
+    
+    // Regras lógicas (apenas para atuadores)
+    logicRules?: LogicRule[];
 }
 
 /**
@@ -197,6 +267,7 @@ export interface AppState {
     serialStatus: SerialStatus;
     telemetryMessages: TelemetryMessage[];
     lastCode: string | null;
+    hardwareProfile: HardwareProfileType; // Perfil de hardware ativo
 
     // UI
     isInspectorOpen: boolean;

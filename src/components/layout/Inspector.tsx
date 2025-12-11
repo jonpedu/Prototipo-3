@@ -8,10 +8,14 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { useOrbitaStore } from '../../store/useStore';
 import { getDriver } from '../../core/drivers';
-import { Trash2, X } from 'lucide-react';
+import { useNodeConnections } from '../../hooks/useNodeConnections';
+import { HardwareCategory, LogicRule, LogicOperator, LogicAction } from '../../core/types';
+import { isPinLocked, getPinLabel } from '../../config/hardware-profiles';
+import { Trash2, X, Zap } from 'lucide-react';
 
 export const Inspector: React.FC = () => {
-    const { selectedNode, updateNodeData, deleteNode, selectNode, edges } = useOrbitaStore();
+    const { selectedNode, updateNodeData, deleteNode, selectNode, edges, hardwareProfile } = useOrbitaStore();
+    const connections = useNodeConnections(selectedNode?.id || null);
 
     if (!selectedNode) {
         return (
@@ -40,6 +44,53 @@ export const Inspector: React.FC = () => {
                 [parameterId]: value
             }
         });
+    };
+
+    const handleLogicRuleChange = (
+        sourceId: string,
+        sourceHandle: string,
+        field: keyof LogicRule,
+        value: any
+    ) => {
+        const logicRules = selectedNode.data.logicRules || [];
+        const existingRuleIndex = logicRules.findIndex(
+            r => r.sourceId === sourceId && r.sourceHandle === sourceHandle
+        );
+
+        if (existingRuleIndex >= 0) {
+            // Atualiza regra existente
+            const updatedRules = [...logicRules];
+            updatedRules[existingRuleIndex] = {
+                ...updatedRules[existingRuleIndex],
+                [field]: value
+            };
+            updateNodeData(selectedNode.id, { logicRules: updatedRules });
+        } else {
+            // Cria nova regra
+            const connection = connections.find(
+                c => c.sourceNode.id === sourceId && c.sourceHandle === sourceHandle
+            );
+            if (!connection) return;
+
+            const newRule: LogicRule = {
+                sourceId,
+                sourceType: connection.sourceNode.data.driverId,
+                sourceHandle,
+                condition: LogicOperator.GREATER_THAN,
+                value: 0,
+                action: LogicAction.TURN_ON,
+                [field]: value
+            };
+            updateNodeData(selectedNode.id, {
+                logicRules: [...logicRules, newRule]
+            });
+        }
+    };
+
+    const getLogicRule = (sourceId: string, sourceHandle: string): LogicRule | undefined => {
+        return selectedNode.data.logicRules?.find(
+            r => r.sourceId === sourceId && r.sourceHandle === sourceHandle
+        );
     };
 
     const handleDelete = () => {
@@ -89,11 +140,19 @@ export const Inspector: React.FC = () => {
                         <div className="space-y-3">
                             {driver.parameters.map(param => {
                                 const value = selectedNode.data.parameters[param.id] ?? param.default;
+                                
+                                // Hardware profile constraints para pinos GPIO
+                                const isGpioPin = param.id === 'pin';
+                                const pinIsLocked = isGpioPin && isPinLocked(hardwareProfile, selectedNode.data.driverId);
+                                const pinLabel = isGpioPin ? getPinLabel(hardwareProfile, selectedNode.data.driverId) : null;
 
                                 return (
                                     <div key={param.id}>
                                         <label className="block text-xs font-medium text-gray-400 mb-1">
-                                            {param.label}
+                                            {pinLabel || param.label}
+                                            {pinIsLocked && (
+                                                <span className="ml-2 text-xs text-yellow-500">(Travado)</span>
+                                            )}
                                         </label>
 
                                         {param.type === 'number' && (
@@ -102,13 +161,15 @@ export const Inspector: React.FC = () => {
                                                 value={value}
                                                 min={param.min}
                                                 max={param.max}
+                                                disabled={pinIsLocked}
                                                 onChange={(e) => handleParameterChange(param.id, Number(e.target.value))}
-                                                className="
+                                                className={`
                           w-full px-3 py-2 rounded
                           bg-gray-800 border border-gray-700
                           text-gray-200 text-sm
                           focus:outline-none focus:ring-2 focus:ring-blue-500
-                        "
+                          ${pinIsLocked ? 'opacity-60 cursor-not-allowed' : ''}
+                        `}
                                             />
                                         )}
 
@@ -233,6 +294,99 @@ export const Inspector: React.FC = () => {
                         </Card>
                     );
                 })}
+
+                {/* Seção de Lógica/Automação para Atuadores com Conexões de Sensores */}
+                {selectedNode.data.category === HardwareCategory.ACTUATOR && connections.length > 0 && (
+                    <Card className="bg-purple-900/20 border-purple-700/50">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Zap className="w-4 h-4 text-purple-400" />
+                            <h3 className="text-sm font-semibold text-purple-300">
+                                Automação / Gatilhos
+                            </h3>
+                        </div>
+                        <p className="text-xs text-purple-300/70 mb-4">
+                            Configure condições para ativar este atuador baseado nos sensores conectados.
+                        </p>
+
+                        <div className="space-y-4">
+                            {connections.map(connection => {
+                                const rule = getLogicRule(connection.sourceNode.id, connection.sourceHandle);
+                                
+                                return (
+                                    <div key={`${connection.sourceNode.id}-${connection.sourceHandle}`} className="p-3 bg-gray-800/50 rounded border border-purple-700/30">
+                                        <div className="text-xs font-medium text-purple-200 mb-2">
+                                            "{connection.sourceNode.data.label}" → {connection.sourceHandleLabel}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            {/* Operador */}
+                                            <div>
+                                                <label className="block text-xs text-gray-400 mb-1">
+                                                    Condição
+                                                </label>
+                                                <select
+                                                    value={rule?.condition || LogicOperator.GREATER_THAN}
+                                                    onChange={(e) => handleLogicRuleChange(
+                                                        connection.sourceNode.id,
+                                                        connection.sourceHandle,
+                                                        'condition',
+                                                        e.target.value as LogicOperator
+                                                    )}
+                                                    className="w-full px-2 py-1.5 rounded bg-gray-800 border border-purple-700/50 text-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                >
+                                                    <option value={LogicOperator.GREATER_THAN}>Maior que (&gt;)</option>
+                                                    <option value={LogicOperator.LESS_THAN}>Menor que (&lt;)</option>
+                                                    <option value={LogicOperator.GREATER_EQUAL}>Maior ou igual (≥)</option>
+                                                    <option value={LogicOperator.LESS_EQUAL}>Menor ou igual (≤)</option>
+                                                    <option value={LogicOperator.EQUAL}>Igual (=)</option>
+                                                    <option value={LogicOperator.NOT_EQUAL}>Diferente (≠)</option>
+                                                </select>
+                                            </div>
+
+                                            {/* Valor */}
+                                            <div>
+                                                <label className="block text-xs text-gray-400 mb-1">
+                                                    Valor Limite
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={rule?.value ?? 0}
+                                                    onChange={(e) => handleLogicRuleChange(
+                                                        connection.sourceNode.id,
+                                                        connection.sourceHandle,
+                                                        'value',
+                                                        Number(e.target.value)
+                                                    )}
+                                                    className="w-full px-2 py-1.5 rounded bg-gray-800 border border-purple-700/50 text-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                />
+                                            </div>
+
+                                            {/* Ação */}
+                                            <div>
+                                                <label className="block text-xs text-gray-400 mb-1">
+                                                    Ação
+                                                </label>
+                                                <select
+                                                    value={rule?.action || LogicAction.TURN_ON}
+                                                    onChange={(e) => handleLogicRuleChange(
+                                                        connection.sourceNode.id,
+                                                        connection.sourceHandle,
+                                                        'action',
+                                                        e.target.value as LogicAction
+                                                    )}
+                                                    className="w-full px-2 py-1.5 rounded bg-gray-800 border border-purple-700/50 text-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                >
+                                                    <option value={LogicAction.TURN_ON}>Ligar</option>
+                                                    <option value={LogicAction.TURN_OFF}>Desligar</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </Card>
+                )}
 
                 {/* Portas */}
                 <Card className="bg-gray-900/50">

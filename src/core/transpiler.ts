@@ -193,6 +193,57 @@ export class OrbitaTranspiler implements ITranspiler {
     }
 
     /**
+     * Aplica regras lógicas a um nó atuador
+     * Gera código condicional baseado nas regras definidas
+     */
+    private applyLogicRules(
+        node: OrbitaNode,
+        loopCode: string,
+        sortedNodes: OrbitaNode[],
+        variableMap: Record<string, string>
+    ): string {
+        const logicRules = node.data.logicRules;
+        if (!logicRules || logicRules.length === 0) return loopCode;
+
+        // Gera código de lógica condicional
+        const logicConditions: string[] = [];
+
+        for (const rule of logicRules) {
+            // Encontra o nó de origem
+            const sourceNode = sortedNodes.find(n => n.id === rule.sourceId);
+            if (!sourceNode) continue;
+
+            const sourceVarName = variableMap[rule.sourceId];
+            const sourceDriver = getDriver(sourceNode.data.driverId);
+            if (!sourceDriver) continue;
+
+            // Encontra a porta de saída correspondente
+            const sourceOutput = sourceDriver.outputs.find(o => o.id === rule.sourceHandle);
+            const inputVarName = sourceOutput
+                ? `${sourceVarName}_${sourceOutput.id}`
+                : sourceVarName;
+
+            // Gera a condição
+            const condition = `${inputVarName} ${rule.condition} ${rule.value}`;
+            logicConditions.push(condition);
+        }
+
+        if (logicConditions.length === 0) return loopCode;
+
+        // Substitui o código do loop com lógica condicional
+        // Envolve o código original em blocos if/else baseados nas regras
+        const combinedCondition = logicConditions.join(' or ');
+        
+        const wrappedCode = `
+# Lógica condicional baseada em regras
+if ${combinedCondition}:
+    ${loopCode.split('\n').join('\n    ')}
+`.trim();
+
+        return wrappedCode;
+    }
+
+    /**
      * Constrói o código MicroPython final
      */
     private buildMicroPythonCode(
@@ -272,6 +323,11 @@ export class OrbitaTranspiler implements ITranspiler {
 
             // Remove linhas vazias múltiplas
             loopCode = loopCode.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+
+            // Processa Logic Rules (apenas para atuadores)
+            if (node.data.logicRules && node.data.logicRules.length > 0) {
+                loopCode = this.applyLogicRules(node, loopCode, sortedNodes, variableMap);
+            }
 
             if (loopCode.trim()) loopLines.push(loopCode);
         });
