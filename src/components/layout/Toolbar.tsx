@@ -77,7 +77,7 @@ export const Toolbar: React.FC = () => {
                         variant="primary"
                         size="sm"
                         onClick={connectSerial}
-                        disabled={serialStatus === SerialStatus.CONNECTING}
+                        disabled={false}
                     >
                         <Wifi className="w-4 h-4" />
                         Conectar
