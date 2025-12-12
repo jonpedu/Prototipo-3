@@ -502,7 +502,19 @@ led_should_be_on = bool({{input_state}})
 
         parameters: [
             { id: 'pin', label: 'Pino GPIO', type: 'number', default: 25, min: 0, max: 39 },
-            { id: 'frequency', label: 'Frequência (Hz)', type: 'number', default: 2000, min: 100, max: 8000 },
+            {
+                id: 'tone',
+                label: 'Tom',
+                type: 'select',
+                default: 'normal',
+                options: [
+                    { value: 'very_high', label: 'Muito agudo' },
+                    { value: 'high', label: 'Agudo' },
+                    { value: 'normal', label: 'Normal' },
+                    { value: 'low', label: 'Grave' },
+                    { value: 'very_low', label: 'Muito grave' }
+                ]
+            },
             { id: 'duration', label: 'Duração (ms)', type: 'number', default: 200, min: 50, max: 2000 }
         ],
 
@@ -523,8 +535,20 @@ should_beep = bool({{input_state}})
 should_beep = {{input_value}} != 0
 {{/if}}
 
+tone_freq = 2000
+if {{tone}} == "very_high":
+    tone_freq = 4500
+elif {{tone}} == "high":
+    tone_freq = 3000
+elif {{tone}} == "normal":
+    tone_freq = 2000
+elif {{tone}} == "low":
+    tone_freq = 1000
+elif {{tone}} == "very_low":
+    tone_freq = 500
+
 if should_beep:
-    {{var_name}}_pwm.freq({{frequency}})
+    {{var_name}}_pwm.freq(tone_freq)
     {{var_name}}_pwm.duty(512)
     time.sleep_ms({{duration}})
     {{var_name}}_pwm.duty(0)
