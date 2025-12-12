@@ -18,7 +18,9 @@ export const DRIVER_REGISTRY: Record<string, HardwareDriver> = {
         description: 'Gera valores numéricos simulados (útil para testes)',
         icon: 'Waveform',
 
-        inputs: [],
+        inputs: [
+            { id: 'start', label: 'Iniciar', type: DataType.BOOLEAN }
+        ],
         outputs: [
             { id: 'value', label: 'Valor', type: DataType.NUMBER }
         ],
@@ -47,7 +49,9 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last_time) >= {{interval}}:
         description: 'Lê temperatura de um sensor DHT11/DHT22',
         icon: 'Thermometer',
 
-        inputs: [],
+        inputs: [
+            { id: 'enable', label: 'Habilitar', type: DataType.BOOLEAN }
+        ],
         outputs: [
             { id: 'temperature', label: 'Temperatura', type: DataType.NUMBER },
             { id: 'humidity', label: 'Umidade', type: DataType.NUMBER }
@@ -375,7 +379,9 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
             { id: 'pin', label: 'Pino GPIO', type: 'number', default: 2, min: 0, max: 39 },
             { id: 'blink_enabled', label: 'Piscar automaticamente', type: 'boolean', default: false },
             { id: 'blink_interval', label: 'Intervalo de Pisca (ms)', type: 'number', default: 1000, min: 100, max: 10000 },
-            { id: 'blink_duty', label: 'Duty (%)', type: 'number', default: 50, min: 1, max: 99 }
+            { id: 'blink_duty', label: 'Duty (%)', type: 'number', default: 50, min: 1, max: 99 },
+            { id: 'blink_count_enabled', label: 'Limitar número de piscadas', type: 'boolean', default: false },
+            { id: 'blink_count', label: 'Quantidade de piscadas', type: 'number', default: 3, min: 1, max: 100 }
         ],
 
         dynamicParameters: [
@@ -463,7 +469,8 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
             imports: ['from machine import Pin', 'import time'],
             setupCode: `{{var_name}}_led = Pin({{pin}}, Pin.OUT)
 {{var_name}}_blink_last = 0
-{{var_name}}_blink_state = False`,
+{{var_name}}_blink_state = False
+{{var_name}}_blink_done = 0`,
             loopCode: `
 # Avalia condições baseadas nas entradas conectadas
 led_should_be_on = False
@@ -501,15 +508,20 @@ if not has_input:
     on_time = int(interval_ms * duty)
     off_time = interval_ms - on_time
     now = time.ticks_ms()
-    if {{var_name}}_blink_state:
-        if time.ticks_diff(now, {{var_name}}_blink_last) >= on_time:
-            {{var_name}}_blink_state = False
-            {{var_name}}_blink_last = now
+    # Se limite de piscadas estiver ativo e já alcançado, manter desligado
+    if {{blink_count_enabled}} and {{var_name}}_blink_done >= {{blink_count}}:
+        led_should_be_on = False
     else:
-        if time.ticks_diff(now, {{var_name}}_blink_last) >= off_time:
-            {{var_name}}_blink_state = True
-            {{var_name}}_blink_last = now
-    led_should_be_on = {{var_name}}_blink_state
+        if {{var_name}}_blink_state:
+            if time.ticks_diff(now, {{var_name}}_blink_last) >= on_time:
+                {{var_name}}_blink_state = False
+                {{var_name}}_blink_last = now
+        else:
+            if time.ticks_diff(now, {{var_name}}_blink_last) >= off_time:
+                {{var_name}}_blink_state = True
+                {{var_name}}_blink_last = now
+                {{var_name}}_blink_done += 1
+        led_should_be_on = {{var_name}}_blink_state
 {{/if}}
 
 {{var_name}}_led.value(1 if led_should_be_on else 0)
@@ -547,7 +559,9 @@ if not has_input:
             },
             { id: 'duration', label: 'Duração (ms)', type: 'number', default: 200, min: 50, max: 2000 },
             { id: 'repeat_enabled', label: 'Repetir automaticamente', type: 'boolean', default: false },
-            { id: 'repeat_interval', label: 'Intervalo de repetição (ms)', type: 'number', default: 2000, min: 100, max: 20000 }
+            { id: 'repeat_interval', label: 'Intervalo de repetição (ms)', type: 'number', default: 2000, min: 100, max: 20000 },
+            { id: 'repeat_count_enabled', label: 'Limitar número de toques', type: 'boolean', default: false },
+            { id: 'repeat_count', label: 'Quantidade de toques', type: 'number', default: 3, min: 1, max: 100 }
         ],
 
         code: {
@@ -556,6 +570,7 @@ if not has_input:
 {{var_name}}_pwm = PWM(Pin({{pin}}))
 {{var_name}}_pwm.duty(0)
 {{var_name}}_repeat_last = 0
+{{var_name}}_repeat_done = 0
 `.trim(),
             loopCode: `
 should_beep = False
@@ -587,10 +602,20 @@ elif {{tone}} == "very_low":
 {{#if repeat_enabled}}
 if not has_input:
     now = time.ticks_ms()
-    if time.ticks_diff(now, {{var_name}}_repeat_last) >= {{repeat_interval}}:
-        should_beep = True
-        {{var_name}}_repeat_last = now
+    if (not {{repeat_count_enabled}}) or ({{var_name}}_repeat_done < {{repeat_count}}):
+        if time.ticks_diff(now, {{var_name}}_repeat_last) >= {{repeat_interval}}:
+            should_beep = True
+            {{var_name}}_repeat_last = now
+            if {{repeat_count_enabled}}:
+                {{var_name}}_repeat_done += 1
+    else:
+        should_beep = False
+        {{var_name}}_pwm.duty(0)
 {{/if}}
+
+# Reset contador se entradas assumirem controle
+if has_input:
+    {{var_name}}_repeat_done = 0
 
 if should_beep:
     {{var_name}}_pwm.freq(tone_freq)
@@ -809,6 +834,47 @@ target_angle = int(max(0, min({{input_angle}}, 180)))
         }
     },
 
+    delay_trigger: {
+        id: 'delay_trigger',
+        name: 'Aguardar X segundos',
+        category: HardwareCategory.LOGIC,
+        description: 'Ativa após um atraso inicial, sem depender de sensores',
+        icon: 'Clock3',
+
+        inputs: [
+            { id: 'start', label: 'Iniciar', type: DataType.BOOLEAN }
+        ],
+        outputs: [
+            { id: 'ready', label: 'Pronto', type: DataType.BOOLEAN }
+        ],
+
+        parameters: [
+            { id: 'delay_ms', label: 'Atraso inicial (ms)', type: 'number', default: 2000, min: 0, max: 600000 }
+        ],
+
+        code: {
+            imports: ['import time'],
+            setupCode: `
+{{var_name}}_start = time.ticks_ms()
+{{var_name}} = False
+`.trim(),
+            loopCode: `
+enabled = True
+{{#if input_enable}}
+enabled = bool({{input_enable}})
+{{/if}}
+
+if not enabled:
+    {{var_name}} = False
+    {{var_name}}_start = time.ticks_ms()
+else:
+    if not {{var_name}}:
+        if time.ticks_diff(time.ticks_ms(), {{var_name}}_start) >= {{delay_ms}}:
+            {{var_name}} = True
+`.trim()
+        }
+    },
+
     sequence_timer: {
         id: 'sequence_timer',
         name: 'Sequenciador',
@@ -816,20 +882,25 @@ target_angle = int(max(0, min({{input_angle}}, 180)))
         description: 'Gera uma sequência de passos temporizados para acionar atuadores',
         icon: 'Timer',
 
-        inputs: [],
+        inputs: [
+            { id: 'start', label: 'Iniciar', type: DataType.BOOLEAN }
+        ],
         outputs: [
             { id: 'state', label: 'Estado', type: DataType.BOOLEAN },
             { id: 'step', label: 'Passo Atual', type: DataType.NUMBER }
         ],
 
         parameters: [
+            { id: 'start_delay', label: 'Aguardar antes de iniciar (ms)', type: 'number', default: 0, min: 0, max: 600000 },
             { id: 'step1_state', label: 'Passo 1 ligado?', type: 'boolean', default: true },
             { id: 'step1_duration', label: 'Duração passo 1 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
             { id: 'step2_state', label: 'Passo 2 ligado?', type: 'boolean', default: false },
-            { id: 'step2_duration', label: 'Duração passo 2 (ms)', type: 'number', default: 800, min: 100, max: 60000 },
+            { id: 'step2_duration', label: 'Duração passo 2 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
             { id: 'step3_state', label: 'Passo 3 ligado?', type: 'boolean', default: true },
             { id: 'step3_duration', label: 'Duração passo 3 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
-            { id: 'repeat_cycle', label: 'Repetir sempre', type: 'boolean', default: true }
+            { id: 'step4_state', label: 'Passo 4 ligado?', type: 'boolean', default: false },
+            { id: 'step4_duration', label: 'Duração passo 4 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
+            { id: 'repeat_cycle', label: 'Repetir sempre', type: 'boolean', default: false }
         ],
 
         code: {
@@ -838,21 +909,49 @@ target_angle = int(max(0, min({{input_angle}}, 180)))
 {{var_name}}_steps = [
     ({{step1_state}}, {{step1_duration}}),
     ({{step2_state}}, {{step2_duration}}),
-    ({{step3_state}}, {{step3_duration}})
+    ({{step3_state}}, {{step3_duration}}),
+    ({{step4_state}}, {{step4_duration}})
 ]
 {{var_name}}_steps = [(s, d) for (s, d) in {{var_name}}_steps if d > 0]
 {{var_name}}_index = 0
 {{var_name}}_last = time.ticks_ms()
 {{var_name}}_state = False
 {{var_name}}_step = 0
+{{var_name}}_start_delay = max(0, {{start_delay}})
+{{var_name}}_started = False
 `.trim(),
             loopCode: `
-# Sequenciador simples de três passos
+# Sequenciador simples de até quatro passos com gatilho opcional de início
+start_active = True
+{{#if input_start}}
+start_active = bool({{input_start}})
+{{/if}}
+
 if len({{var_name}}_steps) == 0:
+    {{var_name}}_state = False
+    {{var_name}}_step = 0
+elif not start_active:
+    # Se gatilho desligado, reseta ciclo e aguarda religar
+    {{var_name}}_index = 0
+    {{var_name}}_started = False
+    {{var_name}}_last = time.ticks_ms()
     {{var_name}}_state = False
     {{var_name}}_step = 0
 else:
     now = time.ticks_ms()
+
+    # Aguarda atraso inicial apenas uma vez após gatilho
+    if not {{var_name}}_started:
+        if {{var_name}}_start_delay == 0 or time.ticks_diff(now, {{var_name}}_last) >= {{var_name}}_start_delay:
+            {{var_name}}_started = True
+            {{var_name}}_last = now
+        else:
+            {{var_name}}_state = False
+            {{var_name}}_step = 0
+            {{var_name}}_state = {{var_name}}_state
+            {{var_name}}_step = {{var_name}}_step
+            return
+
     target_state, duration_ms = {{var_name}}_steps[{{var_name}}_index]
     if time.ticks_diff(now, {{var_name}}_last) >= duration_ms:
         {{var_name}}_index += 1

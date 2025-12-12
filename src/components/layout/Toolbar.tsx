@@ -87,7 +87,7 @@ export const Toolbar: React.FC = () => {
 
     const handleClearCanvas = () => {
         if (nodes.length === 0) return;
-        
+
         if (confirm('Tem certeza que deseja limpar o canvas? Todas as alterações não salvas serão perdidas.')) {
             clearCanvas();
         }

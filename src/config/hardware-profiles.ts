@@ -69,7 +69,8 @@ export const PION_CANSAT_V1: HardwareProfile = {
         'sd_logger',
 
         // Lógica simples
-        'sequence_timer'
+        'sequence_timer',
+        'delay_trigger'
     ]
 };
 
@@ -118,7 +119,8 @@ export const CUBESAT_V1: HardwareProfile = {
         'sd_logger',
 
         // Lógica simples
-        'sequence_timer'
+        'sequence_timer',
+        'delay_trigger'
     ]
 };
 

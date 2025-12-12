@@ -11,7 +11,7 @@ import { getDriver } from '../../core/drivers';
 import { useNodeConnections } from '../../hooks/useNodeConnections';
 import { HardwareCategory, LogicRule, LogicOperator, LogicAction } from '../../core/types';
 import { getPinLabel, getPinMapping } from '../../config/hardware-profiles';
-import { Trash2, X, Zap } from 'lucide-react';
+import { Trash2, X, Zap, AlertTriangle } from 'lucide-react';
 
 export const Inspector: React.FC = () => {
     const { selectedNode, updateNodeData, deleteNode, selectNode, edges, hardwareProfile, testActuator } = useOrbitaStore();
@@ -35,6 +35,51 @@ export const Inspector: React.FC = () => {
                 <div className="text-red-400 text-sm">Driver não encontrado</div>
             </div>
         );
+    }
+
+    const params = selectedNode.data.parameters || {};
+
+    const warnings: string[] = [];
+
+    if (driver.id === 'led_output') {
+        const interval = Number(params.blink_interval ?? 0);
+        const duty = Number(params.blink_duty ?? 0);
+        if (params.blink_enabled && interval < 100) {
+            warnings.push('Intervalo de pisca abaixo de 100 ms pode não ser visível ou travar o loop.');
+        }
+        if (duty <= 0 || duty >= 100) {
+            warnings.push('Duty deve ficar entre 1% e 99% para o pisca funcionar.');
+        }
+        if (params.blink_count_enabled && params.blink_count <= 0) {
+            warnings.push('Quantidade de piscadas deve ser maior que zero.');
+        }
+    }
+
+    if (driver.id === 'buzzer') {
+        const interval = Number(params.repeat_interval ?? 0);
+        if (params.repeat_enabled && interval < 100) {
+            warnings.push('Intervalo de repetição menor que 100 ms pode travar o dispositivo.');
+        }
+        if (params.repeat_count_enabled && params.repeat_count <= 0) {
+            warnings.push('Quantidade de toques deve ser maior que zero.');
+        }
+    }
+
+    if (driver.id === 'sequence_timer') {
+        const durations = [params.step1_duration, params.step2_duration, params.step3_duration, params.step4_duration].map(Number).filter(d => !Number.isNaN(d));
+        const validDurations = durations.filter(d => d > 0);
+        if (validDurations.length === 0) {
+            warnings.push('Defina ao menos um passo com duração maior que zero.');
+        }
+        if (validDurations.some(d => d < 100)) {
+            warnings.push('Passos abaixo de 100 ms podem ser ignorados pelo hardware.');
+        }
+    }
+
+    if (driver.id === 'delay_trigger') {
+        if (params.delay_ms < 0) {
+            warnings.push('Atraso inicial não pode ser negativo.');
+        }
     }
 
     const handleParameterChange = (parameterId: string, value: any) => {
@@ -143,6 +188,20 @@ export const Inspector: React.FC = () => {
                 </Card>
 
                 {/* Conexões ativas */}
+                {warnings.length > 0 && (
+                    <Card className="bg-yellow-900/20 border-yellow-700/50">
+                        <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                            <h3 className="text-sm font-semibold text-yellow-200">Atenção</h3>
+                        </div>
+                        <div className="space-y-1 text-xs text-yellow-100">
+                            {warnings.map((w, idx) => (
+                                <div key={idx} className="leading-snug">• {w}</div>
+                            ))}
+                        </div>
+                    </Card>
+                )}
+
                 {connectionSummaries.length > 0 && (
                     <Card className="bg-gray-900/50">
                         <h3 className="text-sm font-semibold text-gray-300 mb-3">Conexões</h3>
