@@ -44,7 +44,10 @@ export const PION_CANSAT_V1: HardwareProfile = {
 
         // Digital
         { driverId: 'buzzer', pin: 25, label: 'Buzzer (GPIO25)', locked: true },
-        { driverId: 'led_output', pin: 2, label: 'LED Onboard (GPIO2)', locked: true },
+        { driverId: 'led_output', pin: 2, label: 'LED Branco (GPIO2)', locked: true },
+        { driverId: 'led_output', pin: 12, label: 'LED RGB R (GPIO12)', locked: true, parameterId: 'pin_r' },
+        { driverId: 'led_output', pin: 13, label: 'LED RGB G (GPIO13)', locked: true, parameterId: 'pin_g' },
+        { driverId: 'led_output', pin: 14, label: 'LED RGB B (GPIO14)', locked: true, parameterId: 'pin_b' },
 
         // SD Card (CS dedicado)
         { driverId: 'sd_logger', pin: 15, label: 'SD CS (GPIO15)', locked: true, parameterId: 'cs_pin' },
@@ -103,7 +106,10 @@ export const CUBESAT_V1: HardwareProfile = {
 
         // Digital
         { driverId: 'buzzer', pin: 25, label: 'Buzzer (GPIO25)', locked: true },
-        { driverId: 'led_output', pin: 2, label: 'LED Onboard (GPIO2)', locked: true },
+        { driverId: 'led_output', pin: 2, label: 'LED Branco (GPIO2)', locked: true },
+        { driverId: 'led_output', pin: 12, label: 'LED RGB R (GPIO12)', locked: true, parameterId: 'pin_r' },
+        { driverId: 'led_output', pin: 13, label: 'LED RGB G (GPIO13)', locked: true, parameterId: 'pin_g' },
+        { driverId: 'led_output', pin: 14, label: 'LED RGB B (GPIO14)', locked: true, parameterId: 'pin_b' },
 
         // SD Card (VSPI CS dedicado)
         { driverId: 'sd_logger', pin: 5, label: 'SD CS (GPIO5)', locked: true, parameterId: 'cs_pin' },

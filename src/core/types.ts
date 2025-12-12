@@ -121,6 +121,35 @@ export interface LogicRule {
     action: LogicAction;           // Ação a executar
 }
 
+// ==================== ACTIONS (ATUADORES) ====================
+
+export type ActionFieldType = 'number' | 'string' | 'select' | 'boolean';
+
+export interface ActionField {
+    id: string;
+    label: string;
+    type: ActionFieldType;
+    default: any;
+    options?: { value: string; label: string }[];
+    min?: number;
+    max?: number;
+}
+
+export interface ActionDefinition {
+    id: string;
+    label: string;
+    description: string;
+    driverIds: string[];
+    fields: ActionField[];
+}
+
+export interface NodeAction {
+    id: string;
+    type: string;
+    label: string;
+    config: Record<string, any>;
+}
+
 // ==================== HARDWARE PROFILES ====================
 
 /**
@@ -172,6 +201,9 @@ export interface OrbitaNodeData extends Record<string, unknown> {
 
     // Regras lógicas (apenas para atuadores)
     logicRules?: LogicRule[];
+
+    // Acoes anexadas ao atuador
+    actions?: NodeAction[];
 
     // Parâmetros dinâmicos baseados em conexões de entrada
     // Chave: inputId (ex: "temperature"), Valor: objeto com valores dos parâmetros dinâmicos
@@ -280,4 +312,7 @@ export interface AppState {
     isInspectorOpen: boolean;
     isConsoleOpen: boolean;
     isMockMode: boolean;
+
+    // UI auxiliar
+    selectedActionId: string | null;
 }

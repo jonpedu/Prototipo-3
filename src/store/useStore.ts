@@ -11,12 +11,14 @@ import {
     TelemetryMessage,
     AppState,
     HardwareProfileType,
-    HardwareCategory
+    HardwareCategory,
+    NodeAction
 } from '../core/types';
 import { serialBridge } from '../core/serial';
 import { transpiler } from '../core/transpiler';
 import { addEdge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react';
 import { getDriver } from '../core/drivers';
+import { getActionDefinition } from '../config/actions';
 
 interface OrbitaStore extends AppState {
     // ==================== CANVAS ACTIONS ====================
@@ -54,6 +56,12 @@ interface OrbitaStore extends AppState {
     toggleConsole: () => void;
     setMockMode: (enabled: boolean) => void;
 
+    // ==================== ACTIONS PANEL ====================
+    addActionToNode: (nodeId: string, actionType: string) => void;
+    removeActionFromNode: (nodeId: string, actionId: string) => void;
+    updateActionConfig: (nodeId: string, actionId: string, patch: Record<string, any>) => void;
+    selectAction: (actionId: string | null) => void;
+
     // ==================== QUICK ACTIONS ====================
     testActuator: (nodeId: string) => void;
 
@@ -87,6 +95,7 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
         isInspectorOpen: true,
         isConsoleOpen: true,
         isMockMode: import.meta.env.VITE_USE_MOCK === 'true',
+        selectedActionId: null,
 
         // ==================== CANVAS ACTIONS ====================
 
@@ -120,7 +129,7 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
 
         selectNode: (nodeId) => {
             const node = nodeId ? get().nodes.find(n => n.id === nodeId) : null;
-            set({ selectedNode: node || null });
+            set({ selectedNode: node || null, selectedActionId: null });
         },
 
         updateNodeData: (nodeId, data) => {
@@ -148,7 +157,8 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
             set({
                 nodes: get().nodes.filter(n => n.id !== nodeId),
                 edges: get().edges.filter(e => e.source !== nodeId && e.target !== nodeId),
-                selectedNode: get().selectedNode?.id === nodeId ? null : get().selectedNode
+                selectedNode: get().selectedNode?.id === nodeId ? null : get().selectedNode,
+                selectedActionId: get().selectedNode?.id === nodeId ? null : get().selectedActionId
             });
         },
 
@@ -163,6 +173,7 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
                 nodes: [],
                 edges: [],
                 selectedNode: null,
+                selectedActionId: null,
                 lastCode: null
             });
         },
@@ -326,7 +337,9 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
                 set({
                     nodes: missionData.nodes,
                     edges: missionData.edges,
-                    hardwareProfile: missionData.hardwareProfile || HardwareProfileType.GENERIC_ESP32
+                    hardwareProfile: missionData.hardwareProfile || HardwareProfileType.GENERIC_ESP32,
+                    selectedNode: null,
+                    selectedActionId: null
                 });
 
                 get().addTelemetryMessage({
@@ -355,6 +368,90 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
 
         setMockMode: (enabled) => {
             set({ isMockMode: enabled });
+        },
+
+        addActionToNode: (nodeId, actionType) => {
+            const node = get().nodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            const definition = getActionDefinition(actionType);
+            if (!definition) return;
+            if (!definition.driverIds.includes(node.data.driverId)) return;
+
+            const newAction: NodeAction = {
+                id: `act_${Date.now()}`,
+                type: definition.id,
+                label: definition.label,
+                config: definition.fields.reduce<Record<string, any>>((acc, field) => {
+                    acc[field.id] = field.default;
+                    return acc;
+                }, {})
+            };
+
+            const currentActions = node.data.actions || [];
+            const updatedNode = {
+                ...node,
+                data: {
+                    ...node.data,
+                    actions: [...currentActions, newAction]
+                }
+            };
+
+            set({
+                nodes: get().nodes.map(n => (n.id === nodeId ? updatedNode : n)),
+                selectedNode: get().selectedNode?.id === nodeId ? updatedNode : get().selectedNode,
+                selectedActionId: newAction.id
+            });
+        },
+
+        removeActionFromNode: (nodeId, actionId) => {
+            const node = get().nodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            const updatedActions = (node.data.actions || []).filter(action => action.id !== actionId);
+            const updatedNode = {
+                ...node,
+                data: {
+                    ...node.data,
+                    actions: updatedActions
+                }
+            };
+
+            const nextSelectedAction = get().selectedActionId === actionId ? null : get().selectedActionId;
+
+            set({
+                nodes: get().nodes.map(n => (n.id === nodeId ? updatedNode : n)),
+                selectedNode: get().selectedNode?.id === nodeId ? updatedNode : get().selectedNode,
+                selectedActionId: nextSelectedAction
+            });
+        },
+
+        updateActionConfig: (nodeId, actionId, patch) => {
+            const node = get().nodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            const updatedActions = (node.data.actions || []).map(action =>
+                action.id === actionId
+                    ? { ...action, config: { ...action.config, ...patch } }
+                    : action
+            );
+
+            const updatedNode = {
+                ...node,
+                data: {
+                    ...node.data,
+                    actions: updatedActions
+                }
+            };
+
+            set({
+                nodes: get().nodes.map(n => (n.id === nodeId ? updatedNode : n)),
+                selectedNode: get().selectedNode?.id === nodeId ? updatedNode : get().selectedNode
+            });
+        },
+
+        selectAction: (actionId) => {
+            set({ selectedActionId: actionId });
         },
 
         testActuator: (nodeId) => {

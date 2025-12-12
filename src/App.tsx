@@ -8,8 +8,14 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Canvas } from './components/layout/Canvas';
 import { Inspector } from './components/layout/Inspector';
 import { Console } from './components/layout/Console';
+import { ActionPanel } from './components/layout/ActionPanel';
+import { useOrbitaStore } from './store/useStore';
+import { HardwareCategory } from './core/types';
 
 const App: React.FC = () => {
+    const { selectedNode } = useOrbitaStore();
+    const showActions = selectedNode?.data.category === HardwareCategory.ACTUATOR;
+
     return (
         <div className="h-screen flex flex-col bg-gray-950 text-gray-100">
             {/* Toolbar */}
@@ -23,7 +29,7 @@ const App: React.FC = () => {
                 {/* Canvas */}
                 <div className="flex-grow flex flex-col">
                     <Canvas />
-                    <Console />
+                    {showActions ? <ActionPanel /> : <Console />}
                 </div>
 
                 {/* Inspector */}

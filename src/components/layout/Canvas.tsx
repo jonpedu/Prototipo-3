@@ -37,7 +37,10 @@ const CanvasContent: React.FC = () => {
         selectNode,
         deleteNode,
         deleteEdge,
-        hardwareProfile
+        hardwareProfile,
+        selectedNode,
+        addActionToNode,
+        addTelemetryMessage
     } = useOrbitaStore();
 
     // Handler para deletar nós e edges com tecla Delete/Backspace
@@ -75,6 +78,20 @@ const CanvasContent: React.FC = () => {
         (event: React.DragEvent) => {
             event.preventDefault();
 
+            const actionType = event.dataTransfer.getData('application/orbita-action');
+            if (actionType) {
+                if (selectedNode) {
+                    addActionToNode(selectedNode.id, actionType);
+                } else {
+                    addTelemetryMessage({
+                        timestamp: Date.now(),
+                        type: 'log',
+                        content: 'Arraste um componente antes de anexar acoes.'
+                    });
+                }
+                return;
+            }
+
             const driverId = event.dataTransfer.getData('application/reactflow');
             if (!driverId) return;
 
@@ -111,7 +128,7 @@ const CanvasContent: React.FC = () => {
 
             addNode(newNode);
         },
-        [addNode]
+        [addNode, addActionToNode, addTelemetryMessage, hardwareProfile, selectedNode]
     );
 
     const onNodeClick = useCallback(

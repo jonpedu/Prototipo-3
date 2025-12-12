@@ -268,6 +268,9 @@ if ${combinedCondition}:
             const varName = variableMap[node.id];
             const params = { ...node.data.parameters };
 
+            // Ajusta parametros com base nas acoes anexadas ao atuador
+            this.applyActionsToParams(node, params);
+
             // Valida tipos e conexões
             driver.inputs.forEach(input => {
                 const incomingEdge = edges.find(e => e.target === node.id && e.targetHandle === input.id);
@@ -408,6 +411,111 @@ ${loopLines.map(line => '    ' + line.split('\n').join('\n    ')).join('\n')}
 `;
 
         return header + importsSection + setupSection + loopSection;
+    }
+
+    /**
+     * Ajusta parametros de atuadores baseados nas acoes anexadas
+     * para que o codigo gerado reflita os comportamentos escolhidos.
+     */
+    private applyActionsToParams(node: OrbitaNode, params: Record<string, any>) {
+        const actions = node.data.actions || [];
+
+        if (node.data.driverId === 'led_output') {
+            // Defaults neutros
+            params.blink_enabled = false;
+            params.blink_count_enabled = false;
+            params.action_white_mode = 'none';
+            params.action_white_state = false;
+
+            const colorMap: Record<string, number> = {
+                red: 1,
+                green: 2,
+                blue: 3,
+                white: 4,
+                magenta: 5,
+                cyan: 4,
+                yellow: 4,
+                off: 0
+            };
+
+            actions.forEach(action => {
+                switch (action.type) {
+                    case 'led_blink': {
+                        params.led_type = 'white';
+                        params.blink_enabled = true;
+                        params.blink_interval = action.config.interval ?? 500;
+                        params.blink_duty = action.config.duty ?? 50;
+                        params.blink_count_enabled = action.config.count_enabled ?? false;
+                        params.blink_count = action.config.count ?? 5;
+                        break;
+                    }
+                    case 'led_fixed_white': {
+                        params.led_type = 'white';
+                        params.action_white_mode = 'fixed';
+                        params.action_white_state = action.config.state === 'on';
+                        params.blink_enabled = false;
+                        params.blink_count_enabled = false;
+                        break;
+                    }
+                    case 'led_fixed_rgb': {
+                        params.led_type = 'rgb';
+                        const color = action.config.preset as string;
+                        params.preset_color = colorMap[color] ?? 0;
+                        params.brightness_pct = action.config.brightness ?? 70;
+                        break;
+                    }
+                    case 'led_alert': {
+                        // Mantem parametros condicionais basicos (usa porta value)
+                        params.value_operator = action.config.operator ?? '>';
+                        params.value_threshold = action.config.threshold ?? 30;
+                        params.led_type = params.led_type || 'white';
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            });
+        }
+
+        if (node.data.driverId === 'buzzer') {
+            // Defaults neutros
+            params.repeat_enabled = false;
+            params.repeat_count_enabled = false;
+
+            actions.forEach(action => {
+                switch (action.type) {
+                    case 'buzzer_beep': {
+                        params.tone = action.config.tone ?? 'normal';
+                        params.duration = action.config.duration ?? 300;
+                        // Usa mecanismo de repeticao para tocar uma vez quando sem entradas
+                        params.repeat_enabled = true;
+                        params.repeat_interval = 1000;
+                        params.repeat_count_enabled = true;
+                        params.repeat_count = 1;
+                        break;
+                    }
+                    case 'buzzer_pattern': {
+                        params.tone = action.config.tone ?? 'high';
+                        params.duration = action.config.duration ?? 200;
+                        params.repeat_enabled = true;
+                        params.repeat_interval = action.config.interval ?? 400;
+                        params.repeat_count_enabled = true;
+                        params.repeat_count = action.config.count ?? 3;
+                        break;
+                    }
+                    case 'buzzer_alert': {
+                        params.value_operator = action.config.operator ?? '>';
+                        params.value_threshold = action.config.threshold ?? 50;
+                        params.repeat_enabled = true;
+                        params.repeat_interval = action.config.cooldown ?? 1000;
+                        params.repeat_count_enabled = false;
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            });
+        }
     }
 }
 

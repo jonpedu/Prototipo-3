@@ -12,9 +12,22 @@ import { useNodeConnections } from '../../hooks/useNodeConnections';
 import { HardwareCategory, LogicRule, LogicOperator, LogicAction } from '../../core/types';
 import { getPinLabel, getPinMapping, getHardwareProfile } from '../../config/hardware-profiles';
 import { Trash2, X, Zap, AlertTriangle } from 'lucide-react';
+import { getActionDefinition } from '../../config/actions';
 
 export const Inspector: React.FC = () => {
-    const { selectedNode, updateNodeData, deleteNode, selectNode, edges, hardwareProfile, testActuator } = useOrbitaStore();
+    const {
+        selectedNode,
+        updateNodeData,
+        deleteNode,
+        selectNode,
+        edges,
+        hardwareProfile,
+        testActuator,
+        selectedActionId,
+        selectAction,
+        updateActionConfig,
+        removeActionFromNode
+    } = useOrbitaStore();
     const connections = useNodeConnections(selectedNode?.id || null);
 
     if (!selectedNode) {
@@ -38,6 +51,9 @@ export const Inspector: React.FC = () => {
     }
 
     const params = selectedNode.data.parameters || {};
+    const actions = selectedNode.data.actions || [];
+    const selectedAction = actions.find(action => action.id === selectedActionId) || null;
+    const selectedActionDefinition = selectedAction ? getActionDefinition(selectedAction.type) : null;
 
     const warnings: string[] = [];
 
@@ -152,6 +168,11 @@ export const Inspector: React.FC = () => {
         };
     });
 
+    const handleActionFieldChange = (fieldId: string, value: any) => {
+        if (!selectedAction) return;
+        updateActionConfig(selectedNode.id, selectedAction.id, { [fieldId]: value });
+    };
+
     return (
         <div className="w-80 bg-gray-950 border-l border-gray-800 overflow-y-auto">
             <div className="p-4 space-y-4">
@@ -218,6 +239,115 @@ export const Inspector: React.FC = () => {
                     </Card>
                 )}
 
+                {/* Acoes anexadas */}
+                {selectedNode.data.category === HardwareCategory.ACTUATOR && (
+                    <Card className="bg-gray-900/50">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-sm font-semibold text-gray-300">Ações</h3>
+                            {actions.length > 0 && (
+                                <span className="text-xs text-gray-500">{actions.length} anexadas</span>
+                            )}
+                        </div>
+
+                        {actions.length === 0 && (
+                            <p className="text-xs text-gray-500">Arraste uma ação do painel inferior para iniciar.</p>
+                        )}
+
+                        {actions.length > 0 && (
+                            <div className="space-y-2 mb-3">
+                                {actions.map(action => (
+                                    <div
+                                        key={action.id}
+                                        className={`flex items-center justify-between px-2 py-2 rounded border text-xs ${selectedActionId === action.id ? 'border-blue-500 bg-blue-500/10 text-blue-100' : 'border-gray-700 bg-gray-800/70 text-gray-300'}`}
+                                    >
+                                        <button
+                                            className="flex-1 text-left"
+                                            onClick={() => selectAction(action.id)}
+                                        >
+                                            {action.label}
+                                        </button>
+                                        <button
+                                            onClick={() => removeActionFromNode(selectedNode.id, action.id)}
+                                            className="text-gray-400 hover:text-red-400 ml-2"
+                                            aria-label="Remover ação"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {selectedAction && selectedActionDefinition && (
+                            <div className="space-y-3">
+                                <div className="text-xs text-gray-400">Configuração: {selectedAction.label}</div>
+                                {selectedActionDefinition.fields.map(field => {
+                                    const value = selectedAction.config[field.id] ?? field.default;
+
+                                    if (field.type === 'number') {
+                                        return (
+                                            <div key={field.id}>
+                                                <label className="block text-xs text-gray-400 mb-1">{field.label}</label>
+                                                <input
+                                                    type="number"
+                                                    value={value}
+                                                    min={field.min}
+                                                    max={field.max}
+                                                    onChange={(e) => handleActionFieldChange(field.id, Number(e.target.value))}
+                                                    className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                        );
+                                    }
+
+                                    if (field.type === 'boolean') {
+                                        return (
+                                            <label key={field.id} className="flex items-center gap-2 text-sm text-gray-300">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={value}
+                                                    onChange={(e) => handleActionFieldChange(field.id, e.target.checked)}
+                                                    className="w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                                                />
+                                                {field.label}
+                                            </label>
+                                        );
+                                    }
+
+                                    if (field.type === 'select' && field.options) {
+                                        return (
+                                            <div key={field.id}>
+                                                <label className="block text-xs text-gray-400 mb-1">{field.label}</label>
+                                                <select
+                                                    value={value}
+                                                    onChange={(e) => handleActionFieldChange(field.id, e.target.value)}
+                                                    className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                >
+                                                    {field.options.map(opt => (
+                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div key={field.id}>
+                                            <label className="block text-xs text-gray-400 mb-1">{field.label}</label>
+                                            <input
+                                                type="text"
+                                                value={value}
+                                                onChange={(e) => handleActionFieldChange(field.id, e.target.value)}
+                                                className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </Card>
+                )}
+
                 {/* Parâmetros */}
                 {driver.parameters.length > 0 && (
                     <Card className="bg-gray-900/50">
@@ -225,7 +355,7 @@ export const Inspector: React.FC = () => {
 
                         <div className="space-y-3">
                             {driver.parameters.map(param => {
-                                const isPinField = ['pin', 'cs_pin', 'sda', 'scl'].includes(param.id);
+                                const isPinField = ['pin', 'cs_pin', 'sda', 'scl', 'pin_r', 'pin_g', 'pin_b'].includes(param.id);
                                 const profilePin = isPinField ? getPinMapping(hardwareProfile, selectedNode.data.driverId, param.id) : null;
                                 const pinLabel = isPinField && profilePin !== null
                                     ? getPinLabel(hardwareProfile, selectedNode.data.driverId, param.id)
@@ -237,6 +367,41 @@ export const Inspector: React.FC = () => {
                                 const value = pinIsLocked
                                     ? profilePin
                                     : (selectedNode.data.parameters[param.id] ?? param.default);
+
+                                const hideForAction = (
+                                    (driver.id === 'led_output' && [
+                                        'preset_color',
+                                        'brightness_pct',
+                                        'blink_enabled',
+                                        'blink_interval',
+                                        'blink_duty',
+                                        'blink_count_enabled',
+                                        'blink_count'
+                                    ].includes(param.id)) ||
+                                    (driver.id === 'buzzer' && [
+                                        'tone',
+                                        'duration',
+                                        'repeat_enabled',
+                                        'repeat_interval',
+                                        'repeat_count_enabled',
+                                        'repeat_count'
+                                    ].includes(param.id))
+                                );
+
+                                if (hideForAction) return null;
+
+                                // LED: alterna campos para modo branco vs RGB
+                                if (driver.id === 'led_output') {
+                                    const mode = selectedNode.data.parameters['led_type'] || 'white';
+                                    const isRgb = mode === 'rgb';
+
+                                    if (!isRgb && ['pin_r', 'pin_g', 'pin_b', 'preset_color', 'brightness_pct'].includes(param.id)) {
+                                        return null;
+                                    }
+                                    if (isRgb && ['pin', 'blink_enabled', 'blink_interval', 'blink_duty', 'blink_count_enabled', 'blink_count'].includes(param.id)) {
+                                        return null;
+                                    }
+                                }
 
                                 // Regra dinâmica para o comparador: esconder operadores/limites quando o modo não requer
                                 if (driver.id === 'comparator') {
