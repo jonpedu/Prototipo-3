@@ -10,7 +10,7 @@ import { useOrbitaStore } from '../../store/useStore';
 import { getDriver } from '../../core/drivers';
 import { useNodeConnections } from '../../hooks/useNodeConnections';
 import { HardwareCategory, LogicRule, LogicOperator, LogicAction } from '../../core/types';
-import { isPinLocked, getPinLabel } from '../../config/hardware-profiles';
+import { getPinLabel, getPinMapping } from '../../config/hardware-profiles';
 import { Trash2, X, Zap } from 'lucide-react';
 
 export const Inspector: React.FC = () => {
@@ -166,12 +166,19 @@ export const Inspector: React.FC = () => {
 
                         <div className="space-y-3">
                             {driver.parameters.map(param => {
-                                const value = selectedNode.data.parameters[param.id] ?? param.default;
+                                const profilePin = getPinMapping(hardwareProfile, selectedNode.data.driverId);
+                                const pinLabel = profilePin !== null ? getPinLabel(hardwareProfile, selectedNode.data.driverId) : null;
 
-                                // Hardware profile constraints para pinos GPIO
-                                const isGpioPin = param.id === 'pin';
-                                const pinIsLocked = isGpioPin && isPinLocked(hardwareProfile, selectedNode.data.driverId);
-                                const pinLabel = isGpioPin ? getPinLabel(hardwareProfile, selectedNode.data.driverId) : null;
+                                // Travar todos os campos de pino conhecidos (pin, cs_pin, sda, scl) quando o perfil define mapeamento
+                                const isPinField = ['pin', 'cs_pin', 'sda', 'scl'].includes(param.id);
+                                const pinIsLocked = profilePin !== null && isPinField;
+
+                                // Valor exibido: se travado, força o valor do perfil (SCL mantém o default do driver)
+                                const value = pinIsLocked
+                                    ? (param.id === 'scl'
+                                        ? (selectedNode.data.parameters[param.id] ?? param.default)
+                                        : profilePin)
+                                    : (selectedNode.data.parameters[param.id] ?? param.default);
 
                                 return (
                                     <div key={param.id}>
