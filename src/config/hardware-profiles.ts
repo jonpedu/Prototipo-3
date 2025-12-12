@@ -29,10 +29,14 @@ export const PION_CANSAT_V1: HardwareProfile = {
     description: 'Kit educacional Pion com pinos pré-configurados',
     pinMappings: [
         // Barramento I2C compartilhado
-        { driverId: 'bme280_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
-        { driverId: 'sht30_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
-        { driverId: 'ccs811_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
-        { driverId: 'imu_mpu9250', pin: 21, label: 'I2C SDA (21/22)', locked: true },
+        { driverId: 'bme280_sensor', pin: 21, label: 'I2C SDA (21)', locked: true, parameterId: 'sda' },
+        { driverId: 'bme280_sensor', pin: 22, label: 'I2C SCL (22)', locked: true, parameterId: 'scl' },
+        { driverId: 'sht30_sensor', pin: 21, label: 'I2C SDA (21)', locked: true, parameterId: 'sda' },
+        { driverId: 'sht30_sensor', pin: 22, label: 'I2C SCL (22)', locked: true, parameterId: 'scl' },
+        { driverId: 'ccs811_sensor', pin: 21, label: 'I2C SDA (21)', locked: true, parameterId: 'sda' },
+        { driverId: 'ccs811_sensor', pin: 22, label: 'I2C SCL (22)', locked: true, parameterId: 'scl' },
+        { driverId: 'imu_mpu9250', pin: 21, label: 'I2C SDA (21)', locked: true, parameterId: 'sda' },
+        { driverId: 'imu_mpu9250', pin: 22, label: 'I2C SCL (22)', locked: true, parameterId: 'scl' },
 
         // Analógicos
         { driverId: 'ldr_sensor', pin: 34, label: 'LDR (GPIO34)', locked: true },
@@ -43,7 +47,7 @@ export const PION_CANSAT_V1: HardwareProfile = {
         { driverId: 'led_output', pin: 2, label: 'LED Onboard (GPIO2)', locked: true },
 
         // SD Card (CS dedicado)
-        { driverId: 'sd_logger', pin: 15, label: 'SD CS (GPIO15)', locked: true },
+        { driverId: 'sd_logger', pin: 15, label: 'SD CS (GPIO15)', locked: true, parameterId: 'cs_pin' },
 
         // Componentes virtuais
         { driverId: 'data_generator', pin: 0, label: 'Virtual (Sem Pino)', locked: false },
@@ -84,10 +88,14 @@ export const CUBESAT_V1: HardwareProfile = {
     description: 'Kit CubeSat com componentes selecionados',
     pinMappings: [
         // Barramento I2C
-        { driverId: 'bme280_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
-        { driverId: 'sht30_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
-        { driverId: 'ccs811_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
-        { driverId: 'imu_mpu9250', pin: 21, label: 'I2C SDA (21/22)', locked: true },
+        { driverId: 'bme280_sensor', pin: 21, label: 'I2C SDA (21)', locked: true, parameterId: 'sda' },
+        { driverId: 'bme280_sensor', pin: 22, label: 'I2C SCL (22)', locked: true, parameterId: 'scl' },
+        { driverId: 'sht30_sensor', pin: 21, label: 'I2C SDA (21)', locked: true, parameterId: 'sda' },
+        { driverId: 'sht30_sensor', pin: 22, label: 'I2C SCL (22)', locked: true, parameterId: 'scl' },
+        { driverId: 'ccs811_sensor', pin: 21, label: 'I2C SDA (21)', locked: true, parameterId: 'sda' },
+        { driverId: 'ccs811_sensor', pin: 22, label: 'I2C SCL (22)', locked: true, parameterId: 'scl' },
+        { driverId: 'imu_mpu9250', pin: 21, label: 'I2C SDA (21)', locked: true, parameterId: 'sda' },
+        { driverId: 'imu_mpu9250', pin: 22, label: 'I2C SCL (22)', locked: true, parameterId: 'scl' },
 
         // Analógicos
         { driverId: 'ldr_sensor', pin: 34, label: 'LDR (GPIO34)', locked: true },
@@ -98,7 +106,7 @@ export const CUBESAT_V1: HardwareProfile = {
         { driverId: 'led_output', pin: 2, label: 'LED Onboard (GPIO2)', locked: true },
 
         // SD Card (VSPI CS dedicado)
-        { driverId: 'sd_logger', pin: 5, label: 'SD CS (GPIO5)', locked: true },
+        { driverId: 'sd_logger', pin: 5, label: 'SD CS (GPIO5)', locked: true, parameterId: 'cs_pin' },
 
         // Componentes virtuais
         { driverId: 'data_generator', pin: 0, label: 'Virtual (Sem Pino)', locked: false },
@@ -152,10 +160,11 @@ export function getAllHardwareProfiles(): HardwareProfile[] {
  */
 export function getPinMapping(
     profileType: HardwareProfileType,
-    driverId: string
+    driverId: string,
+    parameterId: string = 'pin'
 ): number | null {
     const profile = getHardwareProfile(profileType);
-    const mapping = profile.pinMappings.find(m => m.driverId === driverId);
+    const mapping = profile.pinMappings.find(m => m.driverId === driverId && (m.parameterId || 'pin') === parameterId);
     return mapping ? mapping.pin : null;
 }
 
@@ -164,12 +173,13 @@ export function getPinMapping(
  */
 export function isPinLocked(
     profileType: HardwareProfileType,
-    driverId: string
+    driverId: string,
+    parameterId: string = 'pin'
 ): boolean {
     const profile = getHardwareProfile(profileType);
     if (profile.allowCustomPins) return false;
 
-    const mapping = profile.pinMappings.find(m => m.driverId === driverId);
+    const mapping = profile.pinMappings.find(m => m.driverId === driverId && (m.parameterId || 'pin') === parameterId);
     return mapping ? mapping.locked : false;
 }
 
@@ -178,9 +188,10 @@ export function isPinLocked(
  */
 export function getPinLabel(
     profileType: HardwareProfileType,
-    driverId: string
+    driverId: string,
+    parameterId: string = 'pin'
 ): string | null {
     const profile = getHardwareProfile(profileType);
-    const mapping = profile.pinMappings.find(m => m.driverId === driverId);
+    const mapping = profile.pinMappings.find(m => m.driverId === driverId && (m.parameterId || 'pin') === parameterId);
     return mapping ? mapping.label : null;
 }

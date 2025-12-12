@@ -225,19 +225,28 @@ export const Inspector: React.FC = () => {
 
                         <div className="space-y-3">
                             {driver.parameters.map(param => {
-                                const profilePin = getPinMapping(hardwareProfile, selectedNode.data.driverId);
-                                const pinLabel = profilePin !== null ? getPinLabel(hardwareProfile, selectedNode.data.driverId) : null;
-
-                                // Travar todos os campos de pino conhecidos (pin, cs_pin, sda, scl) quando o perfil define mapeamento
                                 const isPinField = ['pin', 'cs_pin', 'sda', 'scl'].includes(param.id);
+                                const profilePin = isPinField ? getPinMapping(hardwareProfile, selectedNode.data.driverId, param.id) : null;
+                                const pinLabel = isPinField && profilePin !== null
+                                    ? getPinLabel(hardwareProfile, selectedNode.data.driverId, param.id)
+                                    : null;
+
                                 const pinIsLocked = profilePin !== null && isPinField;
 
-                                // Valor exibido: se travado, força o valor do perfil (SCL mantém o default do driver)
                                 const value = pinIsLocked
-                                    ? (param.id === 'scl'
-                                        ? (selectedNode.data.parameters[param.id] ?? param.default)
-                                        : profilePin)
+                                    ? profilePin
                                     : (selectedNode.data.parameters[param.id] ?? param.default);
+
+                                // Regra dinâmica para o comparador: esconder operadores/limites quando o modo não requer
+                                if (driver.id === 'comparator') {
+                                    const mode = selectedNode.data.parameters['mode'] || 'inputs';
+                                    const hideThresholds = mode === 'inputs';
+
+                                    if (param.id === 'operator' && mode === 'thresholds') return null;
+                                    if (['a_operator', 'a_threshold', 'b_operator', 'b_threshold', 'combine_operator'].includes(param.id) && hideThresholds) {
+                                        return null;
+                                    }
+                                }
 
                                 return (
                                     <div key={param.id}>

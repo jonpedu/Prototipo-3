@@ -6,7 +6,7 @@
 
 import { OrbitaNode, OrbitaEdge, ITranspiler, TranspileResult, HardwareProfileType } from './types';
 import { getDriver } from './drivers';
-import { getPinMapping } from '../config/hardware-profiles';
+import { getHardwareProfile, getPinMapping } from '../config/hardware-profiles';
 
 export class OrbitaTranspiler implements ITranspiler {
 
@@ -68,15 +68,17 @@ export class OrbitaTranspiler implements ITranspiler {
             // 2. Geração de nomes de variáveis semânticos
             const variableMap = this.generateVariableNames(sortedNodes);
 
+            const warnings: string[] = [];
+
             // 3. Construção do código MicroPython
-            const code = this.buildMicroPythonCode(sortedNodes, edges, variableMap, profile);
+            const code = this.buildMicroPythonCode(sortedNodes, edges, variableMap, profile, warnings);
 
             return {
                 success: true,
                 code,
                 nodeCount: nodes.length,
                 variableMap,
-                warnings: []
+                warnings
             };
         } catch (error) {
             return {
@@ -251,11 +253,13 @@ if ${combinedCondition}:
         sortedNodes: OrbitaNode[],
         edges: OrbitaEdge[],
         variableMap: Record<string, string>,
-        profile: HardwareProfileType
+        profile: HardwareProfileType,
+        warnings: string[]
     ): string {
         const imports = new Set<string>(['import time']);
         const setupLines: string[] = [];
         const loopLines: string[] = [];
+        const profileInfo = getHardwareProfile(profile);
 
         sortedNodes.forEach(node => {
             const driver = getDriver(node.data.driverId);
@@ -264,13 +268,34 @@ if ${combinedCondition}:
             const varName = variableMap[node.id];
             const params = { ...node.data.parameters };
 
+            // Valida tipos e conexões
+            driver.inputs.forEach(input => {
+                const incomingEdge = edges.find(e => e.target === node.id && e.targetHandle === input.id);
+                if (!incomingEdge) {
+                    warnings.push(`Entrada "${input.label}" do componente "${node.data.label}" não está conectada.`);
+                } else {
+                    const sourceNode = sortedNodes.find(n => n.id === incomingEdge.source);
+                    const sourceDriver = sourceNode ? getDriver(sourceNode.data.driverId) : undefined;
+                    const sourceOutput = sourceDriver?.outputs.find(o => o.id === incomingEdge.sourceHandle);
+                    if (sourceOutput && input.type !== sourceOutput.type && input.type !== DataType.ANY && sourceOutput.type !== DataType.ANY) {
+                        warnings.push(`Tipo incompatível: "${sourceOutput.label}" (${sourceOutput.type}) -> "${input.label}" (${input.type}) em "${node.data.label}".`);
+                    }
+                }
+            });
+
             // Aplica mapeamento de pinos do perfil (travados) quando existir
-            const pinFromProfile = getPinMapping(profile, driver.id);
-            if (pinFromProfile !== null) {
-                if ('pin' in params) params.pin = pinFromProfile;
-                if ('cs_pin' in params) params.cs_pin = pinFromProfile;
-                if ('sda' in params) params.sda = pinFromProfile;
-            }
+            profileInfo.pinMappings
+                .filter(m => m.driverId === driver.id)
+                .forEach(mapping => {
+                    const targetParam = mapping.parameterId || 'pin';
+                    if (targetParam in params) {
+                        const currentVal = params[targetParam];
+                        if (!profileInfo.allowCustomPins && currentVal !== undefined && currentVal !== mapping.pin) {
+                            throw new Error(`Perfil ${profileInfo.name} trava ${targetParam}=${mapping.pin} para ${driver.name}, mas foi configurado ${currentVal}.`);
+                        }
+                        params[targetParam] = mapping.pin;
+                    }
+                });
 
             // Coleta imports
             driver.code.imports.forEach(imp => imports.add(imp));

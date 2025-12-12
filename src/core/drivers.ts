@@ -377,6 +377,16 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
 
         parameters: [
             { id: 'pin', label: 'Pino GPIO', type: 'number', default: 2, min: 0, max: 39 },
+            {
+                id: 'input_mode',
+                label: 'Combinar entradas',
+                type: 'select',
+                default: 'priority',
+                options: [
+                    { value: 'priority', label: 'Prioridade (Estado > Valor > Sensores)' },
+                    { value: 'or', label: 'OR de todas as entradas' }
+                ]
+            },
             { id: 'blink_enabled', label: 'Piscar automaticamente', type: 'boolean', default: false },
             { id: 'blink_interval', label: 'Intervalo de Pisca (ms)', type: 'number', default: 1000, min: 100, max: 10000 },
             { id: 'blink_duty', label: 'Duty (%)', type: 'number', default: 50, min: 1, max: 99 },
@@ -475,30 +485,53 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
 # Avalia condições baseadas nas entradas conectadas
 led_should_be_on = False
 
-has_input = False
+# Flags de conexão
+has_state = False
+has_value = False
+has_sensors = False
+
+sensor_on = False
 
 {{#if input_temperature}}
 if {{input_temperature}} {{temp_operator}} {{temp_threshold}}:
-    led_should_be_on = True
-    has_input = True
+    sensor_on = True
+    has_sensors = True
 {{/if}}
 
 {{#if input_humidity}}
 if {{input_humidity}} {{hum_operator}} {{hum_threshold}}:
-    led_should_be_on = True
-    has_input = True
+    sensor_on = True
+    has_sensors = True
 {{/if}}
 
 {{#if input_value}}
-if {{input_value}} {{value_operator}} {{value_threshold}}:
-    led_should_be_on = True
-    has_input = True
+value_on = {{input_value}} {{value_operator}} {{value_threshold}}
+has_value = True
 {{/if}}
 
 {{#if input_state}}
-led_should_be_on = bool({{input_state}})
-has_input = True
+state_on = bool({{input_state}})
+has_state = True
 {{/if}}
+
+has_input = has_state or has_value or has_sensors
+
+if {{input_mode}} == "priority":
+    if has_state:
+        led_should_be_on = state_on
+    elif has_value:
+        led_should_be_on = value_on
+    elif has_sensors:
+        led_should_be_on = sensor_on
+else:
+    # OR de todas as entradas conectadas
+    led_should_be_on = False
+    if has_state:
+        led_should_be_on = led_should_be_on or state_on
+    if has_value:
+        led_should_be_on = led_should_be_on or value_on
+    if has_sensors:
+        led_should_be_on = led_should_be_on or sensor_on
 
 # Se não há entradas conectadas e modo pisca está habilitado, usar timer interno
 {{#if blink_enabled}}
@@ -545,6 +578,16 @@ if not has_input:
         parameters: [
             { id: 'pin', label: 'Pino GPIO', type: 'number', default: 25, min: 0, max: 39 },
             {
+                id: 'input_mode',
+                label: 'Combinar entradas',
+                type: 'select',
+                default: 'priority',
+                options: [
+                    { value: 'priority', label: 'Prioridade (Estado > Valor)' },
+                    { value: 'or', label: 'OR das entradas' }
+                ]
+            },
+            {
                 id: 'tone',
                 label: 'Tom',
                 type: 'select',
@@ -576,15 +619,27 @@ if not has_input:
 should_beep = False
 has_input = False
 
+state_on = False
+value_on = False
+
 {{#if input_state}}
-should_beep = bool({{input_state}})
+state_on = bool({{input_state}})
 has_input = True
 {{/if}}
 
 {{#if input_value}}
-should_beep = {{input_value}} != 0
+value_on = {{input_value}} != 0
 has_input = True
 {{/if}}
+
+if {{input_mode}} == "priority":
+    if has_input:
+        if {{#if input_state}}True{{else}}False{{/if}}:
+            should_beep = state_on
+        elif {{#if input_value}}True{{else}}False{{/if}}:
+            should_beep = value_on
+else:
+    should_beep = (state_on if {{#if input_state}}True{{else}}False{{/if}} else False) or (value_on if {{#if input_value}}True{{else}}False{{/if}} else False)
 
 tone_freq = 2000
 if {{tone}} == "very_high":
@@ -799,7 +854,7 @@ target_angle = int(max(0, min({{input_angle}}, 180)))
         id: 'comparator',
         name: 'Comparador',
         category: HardwareCategory.LOGIC,
-        description: 'Compara dois valores (>, <, ==, !=)',
+        description: 'Compara A x B ou A/B contra limites com AND/OR',
         icon: 'GitCompare',
 
         inputs: [
@@ -811,6 +866,16 @@ target_angle = int(max(0, min({{input_angle}}, 180)))
         ],
 
         parameters: [
+            {
+                id: 'mode',
+                label: 'Modo',
+                type: 'select',
+                default: 'inputs',
+                options: [
+                    { value: 'inputs', label: 'Comparar A com B' },
+                    { value: 'thresholds', label: 'Comparar com limites' }
+                ]
+            },
             {
                 id: 'operator',
                 label: 'Operador',
@@ -824,13 +889,95 @@ target_angle = int(max(0, min({{input_angle}}, 180)))
                     { value: '>=', label: 'Maior ou igual (>=)' },
                     { value: '<=', label: 'Menor ou igual (<=)' }
                 ]
+            },
+            {
+                id: 'a_operator',
+                label: 'Operador A',
+                type: 'select',
+                default: '>',
+                options: [
+                    { value: '>', label: 'Maior que (>)' },
+                    { value: '<', label: 'Menor que (<)' },
+                    { value: '==', label: 'Igual (==)' },
+                    { value: '!=', label: 'Diferente (!=)' },
+                    { value: '>=', label: 'Maior ou igual (>=)' },
+                    { value: '<=', label: 'Menor ou igual (<=)' }
+                ]
+            },
+            { id: 'a_threshold', label: 'Limite A', type: 'number', default: 0 },
+            {
+                id: 'b_operator',
+                label: 'Operador B',
+                type: 'select',
+                default: '>',
+                options: [
+                    { value: '>', label: 'Maior que (>)' },
+                    { value: '<', label: 'Menor que (<)' },
+                    { value: '==', label: 'Igual (==)' },
+                    { value: '!=', label: 'Diferente (!=)' },
+                    { value: '>=', label: 'Maior ou igual (>=)' },
+                    { value: '<=', label: 'Menor ou igual (<=)' }
+                ]
+            },
+            { id: 'b_threshold', label: 'Limite B', type: 'number', default: 0 },
+            {
+                id: 'combine_operator',
+                label: 'Combinar (limites)',
+                type: 'select',
+                default: 'and',
+                options: [
+                    { value: 'and', label: 'AND (A e B)' },
+                    { value: 'or', label: 'OR (A ou B)' }
+                ]
             }
         ],
 
         code: {
             imports: [],
             setupCode: '',
-            loopCode: '{{var_name}} = {{input_a}} {{operator}} {{input_b}}'
+            loopCode: `
+result = False
+
+if {{mode}} == "inputs":
+    {{#if input_a}}
+    {{#if input_b}}
+    result = {{input_a}} {{operator}} {{input_b}}
+    {{/if}}
+    {{/if}}
+else:
+    has_a = False
+    has_b = False
+    cond_a = False
+    cond_b = False
+
+    {{#if input_a}}
+    cond_a = {{input_a}} {{a_operator}} {{a_threshold}}
+    has_a = True
+    {{/if}}
+
+    {{#if input_b}}
+    cond_b = {{input_b}} {{b_operator}} {{b_threshold}}
+    has_b = True
+    {{/if}}
+
+    if {{combine_operator}} == "and":
+        if has_a or has_b:
+            result = True
+            if has_a:
+                result = result and cond_a
+            if has_b:
+                result = result and cond_b
+        else:
+            result = False
+    else:
+        result = False
+        if has_a:
+            result = result or cond_a
+        if has_b:
+            result = result or cond_b
+
+{{var_name}} = bool(result)
+`.trim()
         }
     },
 

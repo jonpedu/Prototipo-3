@@ -140,6 +140,7 @@ export interface PinMapping {
     pin: number;                   // Número do pino GPIO
     label: string;                 // Nome amigável (ex: "LED Status")
     locked: boolean;               // Se true, usuário não pode alterar
+    parameterId?: string;          // Parâmetro alvo (ex: pin, sda, scl, cs_pin). Default: pin
 }
 
 /**
