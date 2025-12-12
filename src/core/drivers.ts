@@ -372,7 +372,10 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
         outputs: [],
 
         parameters: [
-            { id: 'pin', label: 'Pino GPIO', type: 'number', default: 2, min: 0, max: 39 }
+            { id: 'pin', label: 'Pino GPIO', type: 'number', default: 2, min: 0, max: 39 },
+            { id: 'blink_enabled', label: 'Piscar automaticamente', type: 'boolean', default: false },
+            { id: 'blink_interval', label: 'Intervalo de Pisca (ms)', type: 'number', default: 1000, min: 100, max: 10000 },
+            { id: 'blink_duty', label: 'Duty (%)', type: 'number', default: 50, min: 1, max: 99 }
         ],
 
         dynamicParameters: [
@@ -457,29 +460,56 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
         ],
 
         code: {
-            imports: ['from machine import Pin'],
-            setupCode: '{{var_name}}_led = Pin({{pin}}, Pin.OUT)',
+            imports: ['from machine import Pin', 'import time'],
+            setupCode: `{{var_name}}_led = Pin({{pin}}, Pin.OUT)
+{{var_name}}_blink_last = 0
+{{var_name}}_blink_state = False`,
             loopCode: `
 # Avalia condições baseadas nas entradas conectadas
 led_should_be_on = False
 
+has_input = False
+
 {{#if input_temperature}}
 if {{input_temperature}} {{temp_operator}} {{temp_threshold}}:
     led_should_be_on = True
+    has_input = True
 {{/if}}
 
 {{#if input_humidity}}
 if {{input_humidity}} {{hum_operator}} {{hum_threshold}}:
     led_should_be_on = True
+    has_input = True
 {{/if}}
 
 {{#if input_value}}
 if {{input_value}} {{value_operator}} {{value_threshold}}:
     led_should_be_on = True
+    has_input = True
 {{/if}}
 
 {{#if input_state}}
 led_should_be_on = bool({{input_state}})
+has_input = True
+{{/if}}
+
+# Se não há entradas conectadas e modo pisca está habilitado, usar timer interno
+{{#if blink_enabled}}
+if not has_input:
+    interval_ms = {{blink_interval}}
+    duty = max(1, min({{blink_duty}}, 99)) / 100.0
+    on_time = int(interval_ms * duty)
+    off_time = interval_ms - on_time
+    now = time.ticks_ms()
+    if {{var_name}}_blink_state:
+        if time.ticks_diff(now, {{var_name}}_blink_last) >= on_time:
+            {{var_name}}_blink_state = False
+            {{var_name}}_blink_last = now
+    else:
+        if time.ticks_diff(now, {{var_name}}_blink_last) >= off_time:
+            {{var_name}}_blink_state = True
+            {{var_name}}_blink_last = now
+    led_should_be_on = {{var_name}}_blink_state
 {{/if}}
 
 {{var_name}}_led.value(1 if led_should_be_on else 0)
@@ -515,7 +545,9 @@ led_should_be_on = bool({{input_state}})
                     { value: 'very_low', label: 'Muito grave' }
                 ]
             },
-            { id: 'duration', label: 'Duração (ms)', type: 'number', default: 200, min: 50, max: 2000 }
+            { id: 'duration', label: 'Duração (ms)', type: 'number', default: 200, min: 50, max: 2000 },
+            { id: 'repeat_enabled', label: 'Repetir automaticamente', type: 'boolean', default: false },
+            { id: 'repeat_interval', label: 'Intervalo de repetição (ms)', type: 'number', default: 2000, min: 100, max: 20000 }
         ],
 
         code: {
@@ -523,16 +555,20 @@ led_should_be_on = bool({{input_state}})
             setupCode: `
 {{var_name}}_pwm = PWM(Pin({{pin}}))
 {{var_name}}_pwm.duty(0)
+{{var_name}}_repeat_last = 0
 `.trim(),
             loopCode: `
 should_beep = False
+has_input = False
 
 {{#if input_state}}
 should_beep = bool({{input_state}})
+has_input = True
 {{/if}}
 
 {{#if input_value}}
 should_beep = {{input_value}} != 0
+has_input = True
 {{/if}}
 
 tone_freq = 2000
@@ -546,6 +582,15 @@ elif {{tone}} == "low":
     tone_freq = 1000
 elif {{tone}} == "very_low":
     tone_freq = 500
+
+# Se não há entradas e repetição automática está habilitada, gerar beep por intervalo
+{{#if repeat_enabled}}
+if not has_input:
+    now = time.ticks_ms()
+    if time.ticks_diff(now, {{var_name}}_repeat_last) >= {{repeat_interval}}:
+        should_beep = True
+        {{var_name}}_repeat_last = now
+{{/if}}
 
 if should_beep:
     {{var_name}}_pwm.freq(tone_freq)
