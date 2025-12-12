@@ -7,10 +7,18 @@ import React from 'react';
 import { Card } from '../ui/Card';
 import { getAllDrivers } from '../../core/drivers';
 import { HardwareCategory } from '../../core/types';
+import { useOrbitaStore } from '../../store/useStore';
+import { getHardwareProfile } from '../../config/hardware-profiles';
 import * as LucideIcons from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
-    const drivers = getAllDrivers();
+    const { hardwareProfile } = useOrbitaStore();
+    const profile = getHardwareProfile(hardwareProfile);
+
+    const drivers = getAllDrivers().filter(driver => {
+        if (!profile.allowedDrivers) return true; // Perfil genérico: todos
+        return profile.allowedDrivers.includes(driver.id);
+    });
 
     const categories = [
         { id: HardwareCategory.SENSOR, label: 'Sensores', icon: 'Gauge' },

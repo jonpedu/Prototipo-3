@@ -17,6 +17,7 @@ import '@xyflow/react/dist/style.css';
 
 import { useOrbitaStore } from '../../store/useStore';
 import { getDriver } from '../../core/drivers';
+import { getHardwareProfile } from '../../config/hardware-profiles';
 import OrbitaNode from '../nodes/OrbitaNode';
 
 const nodeTypes = {
@@ -35,7 +36,8 @@ const CanvasContent: React.FC = () => {
         addNode,
         selectNode,
         deleteNode,
-        deleteEdge
+        deleteEdge,
+        hardwareProfile
     } = useOrbitaStore();
 
     // Handler para deletar nós e edges com tecla Delete/Backspace
@@ -78,6 +80,10 @@ const CanvasContent: React.FC = () => {
 
             const driver = getDriver(driverId);
             if (!driver) return;
+
+            // Bloqueia drop de drivers não permitidos no perfil atual
+            const profile = getHardwareProfile(hardwareProfile);
+            if (profile.allowedDrivers && !profile.allowedDrivers.includes(driver.id)) return;
 
             const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
             if (!reactFlowBounds) return;

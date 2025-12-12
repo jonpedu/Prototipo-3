@@ -14,7 +14,8 @@ export const GENERIC_ESP32: HardwareProfile = {
     name: 'ESP32 Genérico',
     description: 'Perfil padrão com pinos configuráveis manualmente',
     pinMappings: [],
-    allowCustomPins: true
+    allowCustomPins: true,
+    allowedDrivers: undefined // Todos os drivers disponíveis
 };
 
 /**
@@ -50,7 +51,69 @@ export const PION_CANSAT_V1: HardwareProfile = {
         { driverId: 'comparator', pin: 0, label: 'Virtual (Sem Pino)', locked: false },
         { driverId: 'threshold', pin: 0, label: 'Virtual (Sem Pino)', locked: false }
     ],
-    allowCustomPins: false
+    allowCustomPins: false,
+    allowedDrivers: [
+        // Sensores reais do kit
+        'bme280_sensor',
+        'sht30_sensor',
+        'ccs811_sensor',
+        'imu_mpu9250',
+        'ldr_sensor',
+        'vbat_sensor',
+
+        // Atuadores do kit
+        'led_output',
+        'buzzer',
+
+        // Comunicação/armazenamento
+        'sd_logger'
+    ]
+};
+
+/**
+ * Perfil CubeSat V1 (placeholder)
+ * Pinos liberados para customização, mas lista de componentes restrita ao kit típico CubeSat
+ */
+export const CUBESAT_V1: HardwareProfile = {
+    id: HardwareProfileType.CUBESAT_V1,
+    name: 'CubeSat V1',
+    description: 'Kit CubeSat com componentes selecionados',
+    pinMappings: [
+        // Barramento I2C
+        { driverId: 'bme280_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
+        { driverId: 'sht30_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
+        { driverId: 'ccs811_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
+        { driverId: 'imu_mpu9250', pin: 21, label: 'I2C SDA (21/22)', locked: true },
+
+        // Analógicos
+        { driverId: 'ldr_sensor', pin: 34, label: 'LDR (GPIO34)', locked: true },
+        { driverId: 'vbat_sensor', pin: 35, label: 'VBAT (GPIO35)', locked: true },
+
+        // Digital
+        { driverId: 'buzzer', pin: 25, label: 'Buzzer (GPIO25)', locked: true },
+        { driverId: 'led_output', pin: 2, label: 'LED Onboard (GPIO2)', locked: true },
+
+        // SD Card (VSPI CS dedicado)
+        { driverId: 'sd_logger', pin: 5, label: 'SD CS (GPIO5)', locked: true },
+
+        // Componentes virtuais
+        { driverId: 'data_generator', pin: 0, label: 'Virtual (Sem Pino)', locked: false },
+        { driverId: 'print_log', pin: 0, label: 'Virtual (Sem Pino)', locked: false },
+        { driverId: 'comparator', pin: 0, label: 'Virtual (Sem Pino)', locked: false },
+        { driverId: 'threshold', pin: 0, label: 'Virtual (Sem Pino)', locked: false }
+    ],
+    allowCustomPins: false,
+    allowedDrivers: [
+        'bme280_sensor',
+        'sht30_sensor',
+        'ccs811_sensor',
+        'imu_mpu9250',
+        'ldr_sensor',
+        'vbat_sensor',
+        'led_output',
+        'buzzer',
+        'sd_logger'
+    ]
 };
 
 /**
@@ -58,7 +121,8 @@ export const PION_CANSAT_V1: HardwareProfile = {
  */
 export const HARDWARE_PROFILES: Record<HardwareProfileType, HardwareProfile> = {
     [HardwareProfileType.GENERIC_ESP32]: GENERIC_ESP32,
-    [HardwareProfileType.PION_CANSAT_V1]: PION_CANSAT_V1
+    [HardwareProfileType.PION_CANSAT_V1]: PION_CANSAT_V1,
+    [HardwareProfileType.CUBESAT_V1]: CUBESAT_V1
 };
 
 /**

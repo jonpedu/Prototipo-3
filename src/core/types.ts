@@ -128,7 +128,8 @@ export interface LogicRule {
  */
 export enum HardwareProfileType {
     GENERIC_ESP32 = 'GENERIC_ESP32',
-    PION_CANSAT_V1 = 'PION_CANSAT_V1'
+    PION_CANSAT_V1 = 'PION_CANSAT_V1',
+    CUBESAT_V1 = 'CUBESAT_V1'
 }
 
 /**
@@ -150,6 +151,7 @@ export interface HardwareProfile {
     description: string;
     pinMappings: PinMapping[];
     allowCustomPins: boolean;      // Se false, apenas pinos do perfil são permitidos
+    allowedDrivers?: string[];     // Quais drivers aparecem na UI para este perfil (undefined => todos)
 }
 
 // ==================== ORBITA NODES ====================
