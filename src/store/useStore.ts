@@ -184,7 +184,7 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
         },
 
         uploadCode: async () => {
-            const { nodes, edges } = get();
+            const { nodes, edges, hardwareProfile } = get();
 
             if (nodes.length === 0) {
                 get().addTelemetryMessage({
@@ -196,7 +196,7 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
             }
 
             // Transpila o código
-            const result = transpiler.transpile(nodes, edges);
+            const result = transpiler.transpile(nodes, edges, hardwareProfile);
 
             if (!result.success || !result.code) {
                 get().addTelemetryMessage({

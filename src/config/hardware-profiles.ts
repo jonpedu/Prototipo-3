@@ -96,7 +96,7 @@ export function isPinLocked(
 ): boolean {
     const profile = getHardwareProfile(profileType);
     if (profile.allowCustomPins) return false;
-    
+
     const mapping = profile.pinMappings.find(m => m.driverId === driverId);
     return mapping ? mapping.locked : false;
 }

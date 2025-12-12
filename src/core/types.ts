@@ -252,7 +252,7 @@ export interface TranspileResult {
  * Interface do Transpilador
  */
 export interface ITranspiler {
-    transpile(nodes: OrbitaNode[], edges: OrbitaEdge[]): TranspileResult;
+    transpile(nodes: OrbitaNode[], edges: OrbitaEdge[], profile: HardwareProfileType): TranspileResult;
     validate(nodes: OrbitaNode[], edges: OrbitaEdge[]): { valid: boolean; errors: string[] };
 }
 

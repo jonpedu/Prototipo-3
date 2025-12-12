@@ -4,8 +4,9 @@
  * Implementa algoritmo de Topological Sort (Kahn's Algorithm)
  */
 
-import { OrbitaNode, OrbitaEdge, ITranspiler, TranspileResult } from './types';
+import { OrbitaNode, OrbitaEdge, ITranspiler, TranspileResult, HardwareProfileType } from './types';
 import { getDriver } from './drivers';
+import { getPinMapping } from '../config/hardware-profiles';
 
 export class OrbitaTranspiler implements ITranspiler {
 
@@ -49,7 +50,7 @@ export class OrbitaTranspiler implements ITranspiler {
     /**
      * Transpila o grafo para código MicroPython
      */
-    transpile(nodes: OrbitaNode[], edges: OrbitaEdge[]): TranspileResult {
+    transpile(nodes: OrbitaNode[], edges: OrbitaEdge[], profile: HardwareProfileType): TranspileResult {
         const validation = this.validate(nodes, edges);
         if (!validation.valid) {
             return {
@@ -68,7 +69,7 @@ export class OrbitaTranspiler implements ITranspiler {
             const variableMap = this.generateVariableNames(sortedNodes);
 
             // 3. Construção do código MicroPython
-            const code = this.buildMicroPythonCode(sortedNodes, edges, variableMap);
+            const code = this.buildMicroPythonCode(sortedNodes, edges, variableMap, profile);
 
             return {
                 success: true,
@@ -249,9 +250,10 @@ if ${combinedCondition}:
     private buildMicroPythonCode(
         sortedNodes: OrbitaNode[],
         edges: OrbitaEdge[],
-        variableMap: Record<string, string>
+        variableMap: Record<string, string>,
+        profile: HardwareProfileType
     ): string {
-        const imports = new Set<string>();
+        const imports = new Set<string>(['import time']);
         const setupLines: string[] = [];
         const loopLines: string[] = [];
 
@@ -260,7 +262,15 @@ if ${combinedCondition}:
             if (!driver) return;
 
             const varName = variableMap[node.id];
-            const params = node.data.parameters;
+            const params = { ...node.data.parameters };
+
+            // Aplica mapeamento de pinos do perfil (travados) quando existir
+            const pinFromProfile = getPinMapping(profile, driver.id);
+            if (pinFromProfile !== null) {
+                if ('pin' in params) params.pin = pinFromProfile;
+                if ('cs_pin' in params) params.cs_pin = pinFromProfile;
+                if ('sda' in params) params.sda = pinFromProfile;
+            }
 
             // Coleta imports
             driver.code.imports.forEach(imp => imports.add(imp));
