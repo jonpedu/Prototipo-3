@@ -14,7 +14,7 @@ import { getPinLabel, getPinMapping } from '../../config/hardware-profiles';
 import { Trash2, X, Zap } from 'lucide-react';
 
 export const Inspector: React.FC = () => {
-    const { selectedNode, updateNodeData, deleteNode, selectNode, edges, hardwareProfile } = useOrbitaStore();
+    const { selectedNode, updateNodeData, deleteNode, selectNode, edges, hardwareProfile, testActuator } = useOrbitaStore();
     const connections = useNodeConnections(selectedNode?.id || null);
 
     if (!selectedNode) {
@@ -465,6 +465,18 @@ export const Inspector: React.FC = () => {
                 </Card>
 
                 {/* Ações */}
+                {selectedNode.data.category === HardwareCategory.ACTUATOR && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => testActuator(selectedNode.id)}
+                        className="w-full"
+                    >
+                        <Zap className="w-4 h-4" />
+                        Testar agora
+                    </Button>
+                )}
+
                 <Button
                     variant="danger"
                     size="sm"

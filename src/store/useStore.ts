@@ -10,11 +10,13 @@ import {
     SerialStatus,
     TelemetryMessage,
     AppState,
-    HardwareProfileType
+    HardwareProfileType,
+    HardwareCategory
 } from '../core/types';
 import { serialBridge } from '../core/serial';
 import { transpiler } from '../core/transpiler';
 import { addEdge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react';
+import { getDriver } from '../core/drivers';
 
 interface OrbitaStore extends AppState {
     // ==================== CANVAS ACTIONS ====================
@@ -51,6 +53,9 @@ interface OrbitaStore extends AppState {
     toggleInspector: () => void;
     toggleConsole: () => void;
     setMockMode: (enabled: boolean) => void;
+
+    // ==================== QUICK ACTIONS ====================
+    testActuator: (nodeId: string) => void;
 }
 
 export const useOrbitaStore = create<OrbitaStore>((set, get) => {
@@ -318,6 +323,35 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
 
         setMockMode: (enabled) => {
             set({ isMockMode: enabled });
+        },
+
+        testActuator: (nodeId) => {
+            const node = get().nodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            const driver = getDriver(node.data.driverId);
+            if (!driver || driver.category !== HardwareCategory.ACTUATOR) return;
+
+            const message = `⚡ Teste rápido: ${node.data.label} (${driver.name}) com parâmetros atuais`;
+            get().addTelemetryMessage({
+                timestamp: Date.now(),
+                type: 'log',
+                content: message
+            });
+
+            if (!get().isMockMode) {
+                get().addTelemetryMessage({
+                    timestamp: Date.now(),
+                    type: 'log',
+                    content: 'Envie o código (Upload) para executar no dispositivo.'
+                });
+            } else {
+                get().addTelemetryMessage({
+                    timestamp: Date.now(),
+                    type: 'data',
+                    content: 'Simulação concluída em modo mock.'
+                });
+            }
         }
     };
 });

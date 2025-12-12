@@ -809,6 +809,70 @@ target_angle = int(max(0, min({{input_angle}}, 180)))
         }
     },
 
+    sequence_timer: {
+        id: 'sequence_timer',
+        name: 'Sequenciador',
+        category: HardwareCategory.LOGIC,
+        description: 'Gera uma sequência de passos temporizados para acionar atuadores',
+        icon: 'Timer',
+
+        inputs: [],
+        outputs: [
+            { id: 'state', label: 'Estado', type: DataType.BOOLEAN },
+            { id: 'step', label: 'Passo Atual', type: DataType.NUMBER }
+        ],
+
+        parameters: [
+            { id: 'step1_state', label: 'Passo 1 ligado?', type: 'boolean', default: true },
+            { id: 'step1_duration', label: 'Duração passo 1 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
+            { id: 'step2_state', label: 'Passo 2 ligado?', type: 'boolean', default: false },
+            { id: 'step2_duration', label: 'Duração passo 2 (ms)', type: 'number', default: 800, min: 100, max: 60000 },
+            { id: 'step3_state', label: 'Passo 3 ligado?', type: 'boolean', default: true },
+            { id: 'step3_duration', label: 'Duração passo 3 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
+            { id: 'repeat_cycle', label: 'Repetir sempre', type: 'boolean', default: true }
+        ],
+
+        code: {
+            imports: ['import time'],
+            setupCode: `
+{{var_name}}_steps = [
+    ({{step1_state}}, {{step1_duration}}),
+    ({{step2_state}}, {{step2_duration}}),
+    ({{step3_state}}, {{step3_duration}})
+]
+{{var_name}}_steps = [(s, d) for (s, d) in {{var_name}}_steps if d > 0]
+{{var_name}}_index = 0
+{{var_name}}_last = time.ticks_ms()
+{{var_name}}_state = False
+{{var_name}}_step = 0
+`.trim(),
+            loopCode: `
+# Sequenciador simples de três passos
+if len({{var_name}}_steps) == 0:
+    {{var_name}}_state = False
+    {{var_name}}_step = 0
+else:
+    now = time.ticks_ms()
+    target_state, duration_ms = {{var_name}}_steps[{{var_name}}_index]
+    if time.ticks_diff(now, {{var_name}}_last) >= duration_ms:
+        {{var_name}}_index += 1
+        if {{var_name}}_index >= len({{var_name}}_steps):
+            if {{repeat_cycle}}:
+                {{var_name}}_index = 0
+            else:
+                {{var_name}}_index = len({{var_name}}_steps) - 1
+        {{var_name}}_last = now
+        target_state, duration_ms = {{var_name}}_steps[{{var_name}}_index]
+
+    {{var_name}}_state = bool(target_state)
+    {{var_name}}_step = {{var_name}}_index + 1
+
+{{var_name}}_state = {{var_name}}_state
+{{var_name}}_step = {{var_name}}_step
+`.trim()
+        }
+    },
+
     threshold: {
         id: 'threshold',
         name: 'Limiar',

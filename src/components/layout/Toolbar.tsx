@@ -19,8 +19,10 @@ import {
     Save,
     FolderOpen,
     FileText,
-    Cpu
+    Cpu,
+    ListChecks
 } from 'lucide-react';
+import { missionPresets } from '../../config/mission-presets';
 
 export const Toolbar: React.FC = () => {
     const {
@@ -35,7 +37,10 @@ export const Toolbar: React.FC = () => {
         saveMission,
         loadMission,
         clearCanvas,
-        setHardwareProfile
+        setHardwareProfile,
+        setNodes,
+        setEdges,
+        selectNode
     } = useOrbitaStore();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +50,24 @@ export const Toolbar: React.FC = () => {
 
     const handleLoadMission = () => {
         fileInputRef.current?.click();
+    };
+
+    const handlePresetChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const presetId = event.target.value;
+        if (!presetId) return;
+
+        const preset = missionPresets.find(p => p.id === presetId);
+        if (!preset) return;
+
+        // Clona nodes/edges para evitar mutações externas
+        const clonedNodes = preset.nodes.map(node => ({ ...node, data: { ...node.data } }));
+        const clonedEdges = preset.edges.map(edge => ({ ...edge }));
+
+        setNodes(clonedNodes);
+        setEdges(clonedEdges);
+        selectNode(null);
+
+        event.target.value = '';
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,6 +117,25 @@ export const Toolbar: React.FC = () => {
                 <div className="flex items-center gap-2">
                     <Satellite className="w-8 h-8 text-blue-500" />
                     <h1 className="text-xl font-bold text-gray-100">ORBITA</h1>
+                </div>
+
+                <div className="h-8 w-px bg-gray-700" />
+
+                {/* Presets de missão */}
+                <div className="flex items-center gap-2">
+                    <ListChecks className="w-4 h-4 text-gray-400" />
+                    <select
+                        defaultValue=""
+                        onChange={handlePresetChange}
+                        className="px-2 py-1 rounded bg-gray-900 border border-gray-700 text-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="" disabled>Missões rápidas</option>
+                        {missionPresets.map(preset => (
+                            <option key={preset.id} value={preset.id}>
+                                {preset.name}
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="h-8 w-px bg-gray-700" />

@@ -66,7 +66,10 @@ export const PION_CANSAT_V1: HardwareProfile = {
         'buzzer',
 
         // Comunicação/armazenamento
-        'sd_logger'
+        'sd_logger',
+
+        // Lógica simples
+        'sequence_timer'
     ]
 };
 
@@ -112,7 +115,10 @@ export const CUBESAT_V1: HardwareProfile = {
         'vbat_sensor',
         'led_output',
         'buzzer',
-        'sd_logger'
+        'sd_logger',
+
+        // Lógica simples
+        'sequence_timer'
     ]
 };
 
