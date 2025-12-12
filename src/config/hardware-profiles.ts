@@ -27,53 +27,28 @@ export const PION_CANSAT_V1: HardwareProfile = {
     name: 'Pion CanSat V1',
     description: 'Kit educacional Pion com pinos pré-configurados',
     pinMappings: [
-        // LEDs
-        {
-            driverId: 'led_output',
-            pin: 2,
-            label: 'LED Status (D2)',
-            locked: true
-        },
-        {
-            driverId: 'led_output',
-            pin: 15,
-            label: 'LED Indicador (D15)',
-            locked: true
-        },
-        
-        // Sensores
-        {
-            driverId: 'temperature_sensor',
-            pin: 4,
-            label: 'DHT Sensor (D4)',
-            locked: true
-        },
-        
-        // Outros componentes podem usar pinos genéricos
-        {
-            driverId: 'data_generator',
-            pin: 0,
-            label: 'Virtual (Sem Pino)',
-            locked: false
-        },
-        {
-            driverId: 'print_log',
-            pin: 0,
-            label: 'Virtual (Sem Pino)',
-            locked: false
-        },
-        {
-            driverId: 'comparator',
-            pin: 0,
-            label: 'Virtual (Sem Pino)',
-            locked: false
-        },
-        {
-            driverId: 'threshold',
-            pin: 0,
-            label: 'Virtual (Sem Pino)',
-            locked: false
-        }
+        // Barramento I2C compartilhado
+        { driverId: 'bme280_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
+        { driverId: 'sht30_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
+        { driverId: 'ccs811_sensor', pin: 21, label: 'I2C SDA (21/22)', locked: true },
+        { driverId: 'imu_mpu9250', pin: 21, label: 'I2C SDA (21/22)', locked: true },
+
+        // Analógicos
+        { driverId: 'ldr_sensor', pin: 34, label: 'LDR (GPIO34)', locked: true },
+        { driverId: 'vbat_sensor', pin: 35, label: 'VBAT (GPIO35)', locked: true },
+
+        // Digital
+        { driverId: 'buzzer', pin: 25, label: 'Buzzer (GPIO25)', locked: true },
+        { driverId: 'led_output', pin: 2, label: 'LED Onboard (GPIO2)', locked: true },
+
+        // SD Card (CS dedicado)
+        { driverId: 'sd_logger', pin: 15, label: 'SD CS (GPIO15)', locked: true },
+
+        // Componentes virtuais
+        { driverId: 'data_generator', pin: 0, label: 'Virtual (Sem Pino)', locked: false },
+        { driverId: 'print_log', pin: 0, label: 'Virtual (Sem Pino)', locked: false },
+        { driverId: 'comparator', pin: 0, label: 'Virtual (Sem Pino)', locked: false },
+        { driverId: 'threshold', pin: 0, label: 'Virtual (Sem Pino)', locked: false }
     ],
     allowCustomPins: false
 };

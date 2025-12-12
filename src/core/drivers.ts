@@ -89,6 +89,271 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last_read) >= {{interval}}:
         }
     },
 
+    bme280_sensor: {
+        id: 'bme280_sensor',
+        name: 'BME/BMP280',
+        category: HardwareCategory.SENSOR,
+        description: 'Temperatura, pressão e umidade via I2C (SDA21/SCL22)',
+        icon: 'Cloud',
+
+        inputs: [],
+        outputs: [
+            { id: 'temperature', label: 'Temperatura', type: DataType.NUMBER },
+            { id: 'humidity', label: 'Umidade', type: DataType.NUMBER },
+            { id: 'pressure', label: 'Pressão', type: DataType.NUMBER }
+        ],
+
+        parameters: [
+            { id: 'sda', label: 'SDA', type: 'number', default: 21, min: 0, max: 39 },
+            { id: 'scl', label: 'SCL', type: 'number', default: 22, min: 0, max: 39 },
+            { id: 'address', label: 'Endereço I2C', type: 'string', default: '0x76' },
+            { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 2000, min: 200, max: 60000 }
+        ],
+
+        code: {
+            imports: ['from machine import Pin, I2C', 'import bme280', 'import time'],
+            setupCode: `
+{{var_name}}_i2c = I2C(0, sda=Pin({{sda}}), scl=Pin({{scl}}))
+{{var_name}}_sensor = bme280.BME280(i2c={{var_name}}_i2c, address=int({{address}}, 16))
+{{var_name}}_last = 0
+{{var_name}}_temperature = 0
+{{var_name}}_humidity = 0
+{{var_name}}_pressure = 0
+`.trim(),
+            loopCode: `
+if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
+    try:
+        t, p, h = {{var_name}}_sensor.read_compensated_data()
+        {{var_name}}_temperature = t / 100
+        {{var_name}}_pressure = p / 25600
+        {{var_name}}_humidity = h / 1024
+        {{var_name}}_last = time.ticks_ms()
+    except Exception as e:
+        print('Erro BME280:', e)
+`.trim()
+        }
+    },
+
+    sht30_sensor: {
+        id: 'sht30_sensor',
+        name: 'SHT20/31',
+        category: HardwareCategory.SENSOR,
+        description: 'Temperatura e umidade I2C (SDA21/SCL22)',
+        icon: 'Droplets',
+
+        inputs: [],
+        outputs: [
+            { id: 'temperature', label: 'Temperatura', type: DataType.NUMBER },
+            { id: 'humidity', label: 'Umidade', type: DataType.NUMBER }
+        ],
+
+        parameters: [
+            { id: 'sda', label: 'SDA', type: 'number', default: 21, min: 0, max: 39 },
+            { id: 'scl', label: 'SCL', type: 'number', default: 22, min: 0, max: 39 },
+            { id: 'address', label: 'Endereço I2C', type: 'string', default: '0x44' },
+            { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 2000, min: 200, max: 60000 }
+        ],
+
+        code: {
+            imports: ['from machine import Pin, I2C', 'import time'],
+            setupCode: `
+{{var_name}}_i2c = I2C(0, sda=Pin({{sda}}), scl=Pin({{scl}}))
+{{var_name}}_address = int({{address}}, 16)
+{{var_name}}_last = 0
+{{var_name}}_temperature = 0
+{{var_name}}_humidity = 0
+`.trim(),
+            loopCode: `
+if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
+    try:
+        {{var_name}}_i2c.writeto({{var_name}}_address, b'\x2C\x06')
+        time.sleep_ms(20)
+        data = {{var_name}}_i2c.readfrom({{var_name}}_address, 6)
+        raw_t = data[0] << 8 | data[1]
+        raw_h = data[3] << 8 | data[4]
+        {{var_name}}_temperature = -45 + 175 * (raw_t / 65535)
+        {{var_name}}_humidity = 100 * (raw_h / 65535)
+        {{var_name}}_last = time.ticks_ms()
+    except Exception as e:
+        print('Erro SHT:', e)
+`.trim()
+        }
+    },
+
+    ccs811_sensor: {
+        id: 'ccs811_sensor',
+        name: 'CCS811',
+        category: HardwareCategory.SENSOR,
+        description: 'eCO2/TVOC via I2C (SDA21/SCL22)',
+        icon: 'Activity',
+
+        inputs: [],
+        outputs: [
+            { id: 'eco2', label: 'eCO2 (ppm)', type: DataType.NUMBER },
+            { id: 'tvoc', label: 'TVOC (ppb)', type: DataType.NUMBER }
+        ],
+
+        parameters: [
+            { id: 'sda', label: 'SDA', type: 'number', default: 21, min: 0, max: 39 },
+            { id: 'scl', label: 'SCL', type: 'number', default: 22, min: 0, max: 39 },
+            { id: 'address', label: 'Endereço I2C', type: 'string', default: '0x5A' },
+            { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 5000, min: 1000, max: 60000 }
+        ],
+
+        code: {
+            imports: ['from machine import Pin, I2C', 'import time'],
+            setupCode: `
+{{var_name}}_i2c = I2C(0, sda=Pin({{sda}}), scl=Pin({{scl}}))
+{{var_name}}_addr = int({{address}}, 16)
+{{var_name}}_last = 0
+{{var_name}}_eco2 = 0
+{{var_name}}_tvoc = 0
+
+# Boot e modo medição (baseline simples)
+{{var_name}}_i2c.writeto_mem({{var_name}}_addr, 0xF4, b'\x00')
+time.sleep_ms(100)
+{{var_name}}_i2c.writeto_mem({{var_name}}_addr, 0x01, b'\x10')
+`.trim(),
+            loopCode: `
+if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
+    try:
+        status = {{var_name}}_i2c.readfrom_mem({{var_name}}_addr, 0x00, 1)
+        if status[0] & 0x08:
+            data = {{var_name}}_i2c.readfrom_mem({{var_name}}_addr, 0x02, 8)
+            {{var_name}}_eco2 = (data[0] << 8) | data[1]
+            {{var_name}}_tvoc = (data[2] << 8) | data[3]
+            {{var_name}}_last = time.ticks_ms()
+    except Exception as e:
+        print('Erro CCS811:', e)
+`.trim()
+        }
+    },
+
+    imu_mpu9250: {
+        id: 'imu_mpu9250',
+        name: 'IMU MPU9250/BMX055',
+        category: HardwareCategory.SENSOR,
+        description: 'Acelerômetro e giroscópio I2C (SDA21/SCL22)',
+        icon: 'Crosshair',
+
+        inputs: [],
+        outputs: [
+            { id: 'accel_x', label: 'Accel X', type: DataType.NUMBER },
+            { id: 'accel_y', label: 'Accel Y', type: DataType.NUMBER },
+            { id: 'accel_z', label: 'Accel Z', type: DataType.NUMBER },
+            { id: 'gyro_x', label: 'Giro X', type: DataType.NUMBER },
+            { id: 'gyro_y', label: 'Giro Y', type: DataType.NUMBER },
+            { id: 'gyro_z', label: 'Giro Z', type: DataType.NUMBER }
+        ],
+
+        parameters: [
+            { id: 'sda', label: 'SDA', type: 'number', default: 21, min: 0, max: 39 },
+            { id: 'scl', label: 'SCL', type: 'number', default: 22, min: 0, max: 39 },
+            { id: 'address', label: 'Endereço I2C', type: 'string', default: '0x68' },
+            { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 100, min: 20, max: 2000 }
+        ],
+
+        code: {
+            imports: ['from machine import Pin, I2C', 'import time'],
+            setupCode: `
+{{var_name}}_i2c = I2C(0, sda=Pin({{sda}}), scl=Pin({{scl}}))
+{{var_name}}_addr = int({{address}}, 16)
+{{var_name}}_last = 0
+{{var_name}}_accel_x = {{var_name}}_accel_y = {{var_name}}_accel_z = 0
+{{var_name}}_gyro_x = {{var_name}}_gyro_y = {{var_name}}_gyro_z = 0
+
+# Acorda o sensor
+{{var_name}}_i2c.writeto_mem({{var_name}}_addr, 0x6B, b'\x00')
+`.trim(),
+            loopCode: `
+if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
+    try:
+        data = {{var_name}}_i2c.readfrom_mem({{var_name}}_addr, 0x3B, 14)
+        ax = (data[0] << 8) | data[1]
+        ay = (data[2] << 8) | data[3]
+        az = (data[4] << 8) | data[5]
+        gx = (data[8] << 8) | data[9]
+        gy = (data[10] << 8) | data[11]
+        gz = (data[12] << 8) | data[13]
+
+        {{var_name}}_accel_x = (ax - 65536 if ax > 32767 else ax) / 16384
+        {{var_name}}_accel_y = (ay - 65536 if ay > 32767 else ay) / 16384
+        {{var_name}}_accel_z = (az - 65536 if az > 32767 else az) / 16384
+
+        {{var_name}}_gyro_x = (gx - 65536 if gx > 32767 else gx) / 131
+        {{var_name}}_gyro_y = (gy - 65536 if gy > 32767 else gy) / 131
+        {{var_name}}_gyro_z = (gz - 65536 if gz > 32767 else gz) / 131
+        {{var_name}}_last = time.ticks_ms()
+    except Exception as e:
+        print('Erro IMU:', e)
+`.trim()
+        }
+    },
+
+    ldr_sensor: {
+        id: 'ldr_sensor',
+        name: 'LDR',
+        category: HardwareCategory.SENSOR,
+        description: 'Leitura analógica do LDR (GPIO34)',
+        icon: 'Sun',
+
+        inputs: [],
+        outputs: [{ id: 'luminosity', label: 'Luminosidade', type: DataType.NUMBER }],
+
+        parameters: [
+            { id: 'pin', label: 'Pino ADC', type: 'number', default: 34, min: 32, max: 39 },
+            { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 500, min: 50, max: 60000 }
+        ],
+
+        code: {
+            imports: ['from machine import ADC, Pin', 'import time'],
+            setupCode: `
+{{var_name}}_adc = ADC(Pin({{pin}}))
+{{var_name}}_adc.atten(ADC.ATTN_11DB)
+{{var_name}}_last = 0
+{{var_name}}_luminosity = 0
+`.trim(),
+            loopCode: `
+if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
+    {{var_name}}_luminosity = {{var_name}}_adc.read()
+    {{var_name}}_last = time.ticks_ms()
+`.trim()
+        }
+    },
+
+    vbat_sensor: {
+        id: 'vbat_sensor',
+        name: 'VBAT',
+        category: HardwareCategory.SENSOR,
+        description: 'Mede tensão da bateria (GPIO35 com divisor)',
+        icon: 'Battery',
+
+        inputs: [],
+        outputs: [{ id: 'voltage', label: 'Tensão (V)', type: DataType.NUMBER }],
+
+        parameters: [
+            { id: 'pin', label: 'Pino ADC', type: 'number', default: 35, min: 32, max: 39 },
+            { id: 'divider_ratio', label: 'Fator do divisor', type: 'number', default: 2.0, min: 1, max: 10 },
+            { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 1000, min: 100, max: 60000 }
+        ],
+
+        code: {
+            imports: ['from machine import ADC, Pin', 'import time'],
+            setupCode: `
+{{var_name}}_adc = ADC(Pin({{pin}}))
+{{var_name}}_adc.atten(ADC.ATTN_11DB)
+{{var_name}}_last = 0
+{{var_name}}_voltage = 0
+`.trim(),
+            loopCode: `
+if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
+    raw = {{var_name}}_adc.read()
+    {{var_name}}_voltage = (raw / 4095) * 3.3 * {{divider_ratio}}
+    {{var_name}}_last = time.ticks_ms()
+`.trim()
+        }
+    },
+
     // ==================== ATUADORES ====================
 
     led_output: {
@@ -218,6 +483,88 @@ led_should_be_on = bool({{input_state}})
 {{/if}}
 
 {{var_name}}_led.value(1 if led_should_be_on else 0)
+`.trim()
+        }
+    },
+
+    buzzer: {
+        id: 'buzzer',
+        name: 'Buzzer',
+        category: HardwareCategory.ACTUATOR,
+        description: 'Emite tons simples com acionamento direto ou por valor',
+        icon: 'Bell',
+
+        inputs: [
+            { id: 'state', label: 'Ativar', type: DataType.BOOLEAN },
+            { id: 'value', label: 'Valor Genérico', type: DataType.NUMBER }
+        ],
+        outputs: [],
+
+        parameters: [
+            { id: 'pin', label: 'Pino GPIO', type: 'number', default: 25, min: 0, max: 39 },
+            { id: 'frequency', label: 'Frequência (Hz)', type: 'number', default: 2000, min: 100, max: 8000 },
+            { id: 'duration', label: 'Duração (ms)', type: 'number', default: 200, min: 50, max: 2000 }
+        ],
+
+        code: {
+            imports: ['from machine import Pin, PWM', 'import time'],
+            setupCode: `
+{{var_name}}_pwm = PWM(Pin({{pin}}))
+{{var_name}}_pwm.duty(0)
+`.trim(),
+            loopCode: `
+should_beep = False
+
+{{#if input_state}}
+should_beep = bool({{input_state}})
+{{/if}}
+
+{{#if input_value}}
+should_beep = {{input_value}} != 0
+{{/if}}
+
+if should_beep:
+    {{var_name}}_pwm.freq({{frequency}})
+    {{var_name}}_pwm.duty(512)
+    time.sleep_ms({{duration}})
+    {{var_name}}_pwm.duty(0)
+`.trim()
+        }
+    },
+
+    sd_logger: {
+        id: 'sd_logger',
+        name: 'Logger SD',
+        category: HardwareCategory.COMMUNICATION,
+        description: 'Registra dados em cartão SD (CS15)',
+        icon: 'HardDrive',
+
+        inputs: [
+            { id: 'value', label: 'Valor', type: DataType.ANY }
+        ],
+        outputs: [],
+
+        parameters: [
+            { id: 'cs_pin', label: 'CS (GPIO)', type: 'number', default: 15, min: 0, max: 39 },
+            { id: 'filename', label: 'Arquivo', type: 'string', default: 'log.csv' },
+            { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 2000, min: 200, max: 60000 }
+        ],
+
+        code: {
+            imports: ['from machine import Pin, SDCard', 'import os', 'import time'],
+            setupCode: `
+{{var_name}}_sd = SDCard(slot=2, sck=Pin(18), mosi=Pin(23), miso=Pin(19), cs=Pin({{cs_pin}}))
+os.mount({{var_name}}_sd, '/sd')
+{{var_name}}_last = 0
+`.trim(),
+            loopCode: `
+if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
+    try:
+        with open('/sd/{{filename}}', 'a') as f:
+            f.write(str({{input_value}}) + '\n')
+        {{var_name}}_last = time.ticks_ms()
+    except Exception as e:
+        print('Erro SD:', e)
 `.trim()
         }
     },
