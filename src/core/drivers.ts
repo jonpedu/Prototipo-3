@@ -702,12 +702,21 @@ if should_beep:
         code: {
             imports: ['from machine import Pin, SDCard', 'import os', 'import time'],
             setupCode: `
-{{var_name}}_sd = SDCard(slot=2, sck=Pin(18), mosi=Pin(23), miso=Pin(19), cs=Pin({{cs_pin}}))
-os.mount({{var_name}}_sd, '/sd')
+{{var_name}}_sd = None
+{{var_name}}_mounted = False
+try:
+    {{var_name}}_sd = SDCard(slot=2, sck=Pin(18), mosi=Pin(23), miso=Pin(19), cs=Pin({{cs_pin}}))
+    os.mount({{var_name}}_sd, '/sd')
+    {{var_name}}_mounted = True
+except Exception as e:
+    print('Erro ao montar SD:', e)
+
 {{var_name}}_last = 0
 `.trim(),
             loopCode: `
-if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
+if not {{var_name}}_mounted:
+    pass
+elif time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
     try:
         with open('/sd/{{filename}}', 'a') as f:
             f.write(str({{input_value}}) + '\n')

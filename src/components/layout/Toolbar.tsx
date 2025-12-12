@@ -20,7 +20,8 @@ import {
     FolderOpen,
     FileText,
     Cpu,
-    ListChecks
+    ListChecks,
+    HeartPulse
 } from 'lucide-react';
 import { missionPresets } from '../../config/mission-presets';
 
@@ -40,7 +41,8 @@ export const Toolbar: React.FC = () => {
         setHardwareProfile,
         setNodes,
         setEdges,
-        selectNode
+        selectNode,
+        runSelfTest
     } = useOrbitaStore();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,6 +140,16 @@ export const Toolbar: React.FC = () => {
                     </select>
                 </div>
 
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={runSelfTest}
+                    title="Carrega um fluxo mínimo com BME280, LED e SD"
+                >
+                    <HeartPulse className="w-4 h-4" />
+                    Auto-teste
+                </Button>
+
                 <div className="h-8 w-px bg-gray-700" />
 
                 {statusBadge()}
@@ -145,6 +157,15 @@ export const Toolbar: React.FC = () => {
                 {isMockMode && (
                     <Badge variant="warning">MODO MOCK</Badge>
                 )}
+
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gray-900 border border-gray-700 text-xs text-gray-200">
+                    <span
+                        className={`h-2 w-2 rounded-full ${isMockMode ? 'bg-amber-400 animate-pulse' : isConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}
+                    />
+                    <span className="uppercase tracking-wide font-semibold">
+                        {isMockMode ? 'Simulação' : isConnected ? 'Dispositivo ao vivo' : 'Offline'}
+                    </span>
+                </div>
             </div>
 
             {/* Controles */}

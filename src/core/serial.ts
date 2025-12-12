@@ -174,45 +174,71 @@ class MockSerialBridge implements ISerialBridge {
         this.mockInterval = window.setInterval(() => {
             counter++;
 
-            // Simula dados de sensores
-            const temp = 20 + Math.random() * 10; // 20-30°C
-            const humidity = 50 + Math.random() * 30; // 50-80%
-            const value = Math.random() * 100;
+            // Simula dados de sensores Pion/CubeSat
+            const temp = 20 + Math.random() * 10; // BME/SHT
+            const humidity = 50 + Math.random() * 30; // SHT/BME
+            const pressure = 900 + Math.random() * 80; // BME
+            const gas = 300 + Math.random() * 200; // CCS811
+            const vbat = 3.3 + Math.random() * 0.4; // VBAT
+            const ldr = Math.floor(300 + Math.random() * 500); // LDR ADC
+            const accelX = (Math.random() - 0.5) * 2; // IMU eixo X
 
-            // Formato de telemetria parseável
-            if (counter % 3 === 0) {
-                this.sendTelemetry({
-                    timestamp: Date.now(),
-                    type: 'data',
-                    content: `DATA: temp=${temp.toFixed(1)}`,
-                    parsed: { temp }
-                });
-            }
+            const now = Date.now();
 
-            if (counter % 5 === 0) {
-                this.sendTelemetry({
-                    timestamp: Date.now(),
-                    type: 'data',
-                    content: `DATA: humidity=${humidity.toFixed(1)}`,
-                    parsed: { humidity }
-                });
-            }
+            // BME/SHT
+            this.sendTelemetry({
+                timestamp: now,
+                type: 'data',
+                content: `DATA: temp=${temp.toFixed(1)},hum=${humidity.toFixed(1)},press=${pressure.toFixed(1)}`,
+                parsed: { temp, humidity, press: pressure }
+            });
 
+            // CCS811
             if (counter % 2 === 0) {
                 this.sendTelemetry({
-                    timestamp: Date.now(),
+                    timestamp: now,
                     type: 'data',
-                    content: `DATA: value=${value.toFixed(2)}`,
-                    parsed: { value }
+                    content: `DATA: gas=${gas.toFixed(0)}`,
+                    parsed: { gas }
+                });
+            }
+
+            // IMU eixo X
+            if (counter % 3 === 0) {
+                this.sendTelemetry({
+                    timestamp: now,
+                    type: 'data',
+                    content: `DATA: ax=${accelX.toFixed(2)}`,
+                    parsed: { ax: accelX }
+                });
+            }
+
+            // VBAT
+            if (counter % 4 === 0) {
+                this.sendTelemetry({
+                    timestamp: now,
+                    type: 'data',
+                    content: `DATA: vbat=${vbat.toFixed(2)}`,
+                    parsed: { vbat }
+                });
+            }
+
+            // LDR
+            if (counter % 5 === 0) {
+                this.sendTelemetry({
+                    timestamp: now,
+                    type: 'data',
+                    content: `DATA: ldr=${ldr}`,
+                    parsed: { ldr }
                 });
             }
 
             // Ocasionalmente envia logs
-            if (counter % 10 === 0) {
+            if (counter % 12 === 0) {
                 this.sendTelemetry({
-                    timestamp: Date.now(),
+                    timestamp: now,
                     type: 'log',
-                    content: `[${counter}] Sistema operacional`
+                    content: `[${counter}] MOCK executando`
                 });
             }
 

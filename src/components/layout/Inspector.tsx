@@ -10,7 +10,7 @@ import { useOrbitaStore } from '../../store/useStore';
 import { getDriver } from '../../core/drivers';
 import { useNodeConnections } from '../../hooks/useNodeConnections';
 import { HardwareCategory, LogicRule, LogicOperator, LogicAction } from '../../core/types';
-import { getPinLabel, getPinMapping } from '../../config/hardware-profiles';
+import { getPinLabel, getPinMapping, getHardwareProfile } from '../../config/hardware-profiles';
 import { Trash2, X, Zap, AlertTriangle } from 'lucide-react';
 
 export const Inspector: React.FC = () => {
@@ -232,6 +232,7 @@ export const Inspector: React.FC = () => {
                                     : null;
 
                                 const pinIsLocked = profilePin !== null && isPinField;
+                                const profileName = pinIsLocked ? getHardwareProfile(hardwareProfile).name : '';
 
                                 const value = pinIsLocked
                                     ? profilePin
@@ -250,10 +251,10 @@ export const Inspector: React.FC = () => {
 
                                 return (
                                     <div key={param.id}>
-                                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                                        <label className="block text-xs font-medium text-gray-400 mb-1" title={pinIsLocked ? `Travado pelo perfil ${profileName}` : undefined}>
                                             {pinLabel || param.label}
                                             {pinIsLocked && (
-                                                <span className="ml-2 text-xs text-yellow-500">(Travado)</span>
+                                                <span className="ml-2 text-xs text-yellow-500" title={`Travado pelo perfil ${profileName}`}>(Travado)</span>
                                             )}
                                         </label>
 
@@ -264,6 +265,7 @@ export const Inspector: React.FC = () => {
                                                 min={param.min}
                                                 max={param.max}
                                                 disabled={pinIsLocked}
+                                                tabIndex={pinIsLocked ? -1 : undefined}
                                                 onChange={(e) => handleParameterChange(param.id, Number(e.target.value))}
                                                 className={`
                           w-full px-3 py-2 rounded

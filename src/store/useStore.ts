@@ -56,7 +56,13 @@ interface OrbitaStore extends AppState {
 
     // ==================== QUICK ACTIONS ====================
     testActuator: (nodeId: string) => void;
+
+    // ==================== HEALTH ====================
+    runSelfTest: () => void;
 }
+
+const MISSION_SCHEMA_VERSION = '2.1';
+const DRIVER_SIGNATURE = 'drivers-2025-12-12';
 
 export const useOrbitaStore = create<OrbitaStore>((set, get) => {
 
@@ -252,7 +258,8 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
             const { nodes, edges, hardwareProfile } = get();
 
             const missionData = {
-                version: '2.0',
+                version: MISSION_SCHEMA_VERSION,
+                driverSignature: DRIVER_SIGNATURE,
                 timestamp: new Date().toISOString(),
                 hardwareProfile,
                 nodes,
@@ -285,6 +292,31 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
                 // Validação básica
                 if (!missionData.nodes || !missionData.edges) {
                     throw new Error('Arquivo inválido: estrutura incorreta');
+                }
+
+                // Avisos de compatibilidade
+                if (missionData.version && missionData.version !== MISSION_SCHEMA_VERSION) {
+                    get().addTelemetryMessage({
+                        timestamp: Date.now(),
+                        type: 'log',
+                        content: `⚠ Versão de missão diferente (arquivo ${missionData.version} vs app ${MISSION_SCHEMA_VERSION})`
+                    });
+                }
+
+                if (missionData.driverSignature && missionData.driverSignature !== DRIVER_SIGNATURE) {
+                    get().addTelemetryMessage({
+                        timestamp: Date.now(),
+                        type: 'log',
+                        content: `⚠ Drivers diferem do arquivo salvo (arquivo ${missionData.driverSignature} vs app ${DRIVER_SIGNATURE})`
+                    });
+                }
+
+                if (missionData.hardwareProfile && missionData.hardwareProfile !== get().hardwareProfile) {
+                    get().addTelemetryMessage({
+                        timestamp: Date.now(),
+                        type: 'log',
+                        content: `⚠ Perfil no arquivo (${missionData.hardwareProfile}) difere do atual (${get().hardwareProfile})`
+                    });
                 }
 
                 // Limpa canvas atual
@@ -352,6 +384,82 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
                     content: 'Simulação concluída em modo mock.'
                 });
             }
+        },
+
+        runSelfTest: () => {
+            const buildNode = (
+                id: string,
+                driverId: string,
+                position: { x: number; y: number },
+                overrides?: Record<string, any>,
+                label?: string
+            ): OrbitaNode | null => {
+                const driver = getDriver(driverId);
+                if (!driver) {
+                    get().addTelemetryMessage({
+                        timestamp: Date.now(),
+                        type: 'error',
+                        content: `Driver não encontrado para self-test: ${driverId}`
+                    });
+                    return null;
+                }
+
+                const parameters = driver.parameters.reduce<Record<string, any>>((acc, param) => {
+                    const override = overrides?.[param.id];
+                    acc[param.id] = override !== undefined ? override : param.default;
+                    return acc;
+                }, {});
+
+                return {
+                    id,
+                    type: 'orbitaNode',
+                    position,
+                    data: {
+                        driverId,
+                        label: label || driver.name,
+                        icon: driver.icon,
+                        category: driver.category,
+                        parameters
+                    }
+                } as OrbitaNode;
+            };
+
+            const bmeNode = buildNode('selftest-bme', 'bme280_sensor', { x: 80, y: 120 }, { interval: 1500 }, 'BME280');
+            const ledNode = buildNode('selftest-led', 'led_output', { x: 360, y: 80 }, { blink_enabled: false }, 'LED Status');
+            const sdNode = buildNode('selftest-sd', 'sd_logger', { x: 360, y: 200 }, { filename: 'selftest.csv', interval: 2000 }, 'Logger SD');
+
+            if (!bmeNode || !ledNode || !sdNode) {
+                return;
+            }
+
+            const edges: OrbitaEdge[] = [
+                {
+                    id: 'selftest-bme-led',
+                    source: bmeNode.id,
+                    sourceHandle: 'temperature',
+                    target: ledNode.id,
+                    targetHandle: 'temperature',
+                    type: 'smoothstep',
+                    animated: true
+                },
+                {
+                    id: 'selftest-bme-sd',
+                    source: bmeNode.id,
+                    sourceHandle: 'temperature',
+                    target: sdNode.id,
+                    targetHandle: 'value',
+                    type: 'smoothstep',
+                    animated: true
+                }
+            ];
+
+            set({ nodes: [bmeNode, ledNode, sdNode], edges });
+
+            get().addTelemetryMessage({
+                timestamp: Date.now(),
+                type: 'log',
+                content: '✓ Self-test carregado: BME280 -> LED + SD'
+            });
         }
     };
 });

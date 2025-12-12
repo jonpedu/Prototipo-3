@@ -376,7 +376,26 @@ if ${combinedCondition}:
 # ================================================
 `;
 
-        const importsSection = Array.from(imports).join('\n');
+        // Dedup avançado: agrupa imports "from X import ..."
+        const fromImports = new Map<string, Set<string>>();
+        const plainImports: string[] = [];
+
+        imports.forEach(imp => {
+            const match = imp.match(/^from\s+([^\s]+)\s+import\s+(.+)$/);
+            if (match) {
+                const mod = match[1];
+                const names = match[2].split(',').map(s => s.trim());
+                if (!fromImports.has(mod)) fromImports.set(mod, new Set());
+                names.forEach(n => fromImports.get(mod)!.add(n));
+            } else {
+                plainImports.push(imp);
+            }
+        });
+
+        const mergedFromImports = Array.from(fromImports.entries())
+            .map(([mod, names]) => `from ${mod} import ${Array.from(names).sort().join(', ')}`);
+
+        const importsSection = [...plainImports.sort(), ...mergedFromImports.sort()].join('\n');
         const setupSection = setupLines.length > 0
             ? `\n# ===== INICIALIZAÇÃO =====\n${setupLines.join('\n')}\n`
             : '';
