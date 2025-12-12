@@ -13,6 +13,11 @@ const OrbitaNode: React.FC<NodeProps> = ({ data: nodeData, selected }) => {
     const data = nodeData as OrbitaNodeData;
     const driver = getDriver(data.driverId);
 
+    const shorten = (label: string) => {
+        if (label.length <= 12) return label;
+        return `${label.slice(0, 11)}…`;
+    };
+
     // Obtém o ícone dinamicamente
     const IconComponent = (LucideIcons as any)[data.icon] || LucideIcons.Box;
 
@@ -52,21 +57,28 @@ const OrbitaNode: React.FC<NodeProps> = ({ data: nodeData, selected }) => {
         relative px-4 py-3 rounded-lg border-2 
         ${borderColor} ${glowColor}
         backdrop-blur-sm
-        min-w-[200px]
+        min-w-[220px]
         transition-all duration-200
         ${selected ? 'ring-2 ring-white/30' : ''}
       `}
         >
-            {/* Handles de entrada (esquerda) */}
+            {/* Handles de entrada (esquerda) + rótulo */}
             {inputs.map((input, index) => (
-                <Handle
+                <div
                     key={input.id}
-                    id={input.id}
-                    type="target"
-                    position={Position.Left}
-                    className="!w-3 !h-3 !bg-blue-500 !border-2 !border-blue-300 hover:!bg-blue-300"
+                    className="absolute left-0 flex items-center gap-1"
                     style={{ top: '50%', transform: `translate(-50%, ${handleOffset(index, inputs.length)}px)` }}
-                />
+                >
+                    <Handle
+                        id={input.id}
+                        type="target"
+                        position={Position.Left}
+                        className="!w-3 !h-3 !bg-blue-500 !border-2 !border-blue-300 hover:!bg-blue-300"
+                    />
+                    <span className="text-[10px] text-blue-100 bg-blue-900/70 border border-blue-700/70 px-1 py-0.5 rounded-sm whitespace-nowrap">
+                        {shorten(input.label || input.id)}
+                    </span>
+                </div>
             ))}
 
             {/* Conteúdo do nó */}
@@ -81,16 +93,23 @@ const OrbitaNode: React.FC<NodeProps> = ({ data: nodeData, selected }) => {
                 </div>
             </div>
 
-            {/* Handles de saída (direita) */}
+            {/* Handles de saída (direita) + rótulo */}
             {outputs.map((output, index) => (
-                <Handle
+                <div
                     key={output.id}
-                    id={output.id}
-                    type="source"
-                    position={Position.Right}
-                    className="!w-3 !h-3 !bg-green-500 !border-2 !border-green-300 hover:!bg-green-300"
+                    className="absolute right-0 flex items-center gap-1 justify-end"
                     style={{ top: '50%', transform: `translate(50%, ${handleOffset(index, outputs.length)}px)` }}
-                />
+                >
+                    <span className="text-[10px] text-green-100 bg-green-900/70 border border-green-700/70 px-1 py-0.5 rounded-sm whitespace-nowrap">
+                        {shorten(output.label || output.id)}
+                    </span>
+                    <Handle
+                        id={output.id}
+                        type="source"
+                        position={Position.Right}
+                        className="!w-3 !h-3 !bg-green-500 !border-2 !border-green-300 hover:!bg-green-300"
+                    />
+                </div>
             ))}
         </div>
     );

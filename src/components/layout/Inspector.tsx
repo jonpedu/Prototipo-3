@@ -17,16 +17,6 @@ export const Inspector: React.FC = () => {
     const { selectedNode, updateNodeData, deleteNode, selectNode, edges, hardwareProfile } = useOrbitaStore();
     const connections = useNodeConnections(selectedNode?.id || null);
 
-    // Debug: log para verificar se está detectando conexões
-    React.useEffect(() => {
-        if (selectedNode) {
-            console.log('🔍 Inspector - Nó selecionado:', selectedNode.data.label);
-            console.log('🔗 Conexões detectadas:', connections.length);
-            console.log('📊 Edges totais:', edges.length);
-            console.log('🎯 Edges para este nó:', edges.filter(e => e.target === selectedNode.id));
-        }
-    }, [selectedNode, connections, edges]);
-
     if (!selectedNode) {
         return (
             <div className="w-80 bg-gray-950 border-l border-gray-800 p-4">
@@ -107,6 +97,16 @@ export const Inspector: React.FC = () => {
         deleteNode(selectedNode.id);
     };
 
+    const connectionSummaries = connections.map(connection => {
+        const targetLabel = driver?.inputs.find(i => i.id === connection.targetHandle)?.label || connection.targetHandle;
+        return {
+            id: connection.edgeId,
+            sourceLabel: connection.sourceNode.data.label,
+            sourceHandleLabel: connection.sourceHandleLabel,
+            targetLabel
+        };
+    });
+
     return (
         <div className="w-80 bg-gray-950 border-l border-gray-800 overflow-y-auto">
             <div className="p-4 space-y-4">
@@ -141,6 +141,23 @@ export const Inspector: React.FC = () => {
             "
                     />
                 </Card>
+
+                {/* Conexões ativas */}
+                {connectionSummaries.length > 0 && (
+                    <Card className="bg-gray-900/50">
+                        <h3 className="text-sm font-semibold text-gray-300 mb-3">Conexões</h3>
+                        <div className="space-y-2 text-xs text-gray-300">
+                            {connectionSummaries.map(conn => (
+                                <div key={conn.id} className="flex flex-col gap-0.5 bg-gray-800/60 border border-gray-700/70 rounded px-2 py-1.5">
+                                    <div className="text-gray-200">{conn.sourceLabel}</div>
+                                    <div className="text-gray-400">
+                                        {conn.sourceHandleLabel} → {conn.targetLabel}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+                )}
 
                 {/* Parâmetros */}
                 {driver.parameters.length > 0 && (
@@ -244,17 +261,6 @@ export const Inspector: React.FC = () => {
                     const hasConnection = edges.some(edge =>
                         edge.target === selectedNode.id && edge.targetHandle === dynamicGroup.inputId
                     );
-
-                    // Debug
-                    console.log(`🎨 Verificando parâmetro dinâmico para inputId: ${dynamicGroup.inputId}`, {
-                        hasConnection,
-                        targetNode: selectedNode.id,
-                        edges: edges.filter(e => e.target === selectedNode.id).map(e => ({
-                            source: e.source,
-                            targetHandle: e.targetHandle,
-                            sourceHandle: e.sourceHandle
-                        }))
-                    });
 
                     if (!hasConnection) return null;
 
