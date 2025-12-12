@@ -233,7 +233,7 @@ export class OrbitaTranspiler implements ITranspiler {
         // Substitui o código do loop com lógica condicional
         // Envolve o código original em blocos if/else baseados nas regras
         const combinedCondition = logicConditions.join(' or ');
-        
+
         const wrappedCode = `
 # Lógica condicional baseada em regras
 if ${combinedCondition}:
@@ -269,7 +269,7 @@ if ${combinedCondition}:
             let setupCode = driver.code.setupCode
                 .replace(/\{\{var_name\}\}/g, varName);
 
-            // Substitui parâmetros
+            // Substitui parâmetros (incluindo estáticos e dinâmicos)
             Object.keys(params).forEach(key => {
                 const value = params[key];
                 const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
@@ -282,7 +282,8 @@ if ${combinedCondition}:
             let loopCode = driver.code.loopCode
                 .replace(/\{\{var_name\}\}/g, varName);
 
-            // Substitui parâmetros (incluindo dinâmicos)
+            // Substitui TODOS os parâmetros (estáticos e dinâmicos)
+            // Isso inclui temp_operator, temp_threshold, hum_operator, etc.
             Object.keys(params).forEach(key => {
                 const value = params[key];
                 const valueStr = typeof value === 'string' ? `"${value}"` : String(value);

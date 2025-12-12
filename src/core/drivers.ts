@@ -222,6 +222,113 @@ led_should_be_on = bool({{input_state}})
         }
     },
 
+    servo_motor: {
+        id: 'servo_motor',
+        name: 'Servo Motor',
+        category: HardwareCategory.ACTUATOR,
+        description: 'Controla um servo motor (0-180 graus) com condições',
+        icon: 'Gauge',
+
+        inputs: [
+            { id: 'temperature', label: 'Temperatura', type: DataType.NUMBER },
+            { id: 'value', label: 'Valor Genérico', type: DataType.NUMBER },
+            { id: 'angle', label: 'Ângulo Direto', type: DataType.NUMBER }
+        ],
+        outputs: [],
+
+        parameters: [
+            { id: 'pin', label: 'Pino GPIO', type: 'number', default: 5, min: 0, max: 39 },
+            { id: 'default_angle', label: 'Ângulo Inicial', type: 'number', default: 90, min: 0, max: 180 }
+        ],
+
+        dynamicParameters: [
+            {
+                inputId: 'temperature',
+                parameters: [
+                    {
+                        id: 'servo_temp_operator',
+                        label: 'Condição de Temperatura',
+                        type: 'select',
+                        default: '>',
+                        options: [
+                            { value: '>', label: 'Maior que (>)' },
+                            { value: '<', label: 'Menor que (<)' },
+                            { value: '>=', label: 'Maior ou igual (>=)' },
+                            { value: '<=', label: 'Menor ou igual (<=)' }
+                        ]
+                    },
+                    {
+                        id: 'servo_temp_threshold',
+                        label: 'Temperatura Limite (°C)',
+                        type: 'number',
+                        default: 25,
+                        min: -50,
+                        max: 100
+                    },
+                    {
+                        id: 'servo_temp_angle',
+                        label: 'Ângulo quando condição ativa',
+                        type: 'number',
+                        default: 180,
+                        min: 0,
+                        max: 180
+                    }
+                ]
+            },
+            {
+                inputId: 'value',
+                parameters: [
+                    {
+                        id: 'servo_value_min',
+                        label: 'Valor Mínimo de Entrada',
+                        type: 'number',
+                        default: 0,
+                        min: -1000,
+                        max: 1000
+                    },
+                    {
+                        id: 'servo_value_max',
+                        label: 'Valor Máximo de Entrada',
+                        type: 'number',
+                        default: 100,
+                        min: -1000,
+                        max: 1000
+                    }
+                ]
+            }
+        ],
+
+        code: {
+            imports: ['from machine import Pin, PWM'],
+            setupCode: `{{var_name}}_servo = PWM(Pin({{pin}}), freq=50)
+{{var_name}}_angle = {{default_angle}}`,
+            loopCode: `
+# Define ângulo baseado nas condições
+target_angle = {{default_angle}}
+
+{{#if input_temperature}}
+if {{input_temperature}} {{servo_temp_operator}} {{servo_temp_threshold}}:
+    target_angle = {{servo_temp_angle}}
+{{/if}}
+
+{{#if input_value}}
+# Mapeia valor de entrada para ângulo 0-180
+mapped_value = max({{servo_value_min}}, min({{input_value}}, {{servo_value_max}}))
+target_angle = int((mapped_value - {{servo_value_min}}) / ({{servo_value_max}} - {{servo_value_min}}) * 180)
+{{/if}}
+
+{{#if input_angle}}
+target_angle = int(max(0, min({{input_angle}}, 180)))
+{{/if}}
+
+# Converte ângulo para duty cycle (40-115 para 0-180 graus)
+{{var_name}}_duty = int(40 + (target_angle / 180) * 75)
+{{var_name}}_servo.duty({{var_name}}_duty)
+{{var_name}}_angle = target_angle
+`.trim()
+        }
+    },
+
     print_log: {
         id: 'print_log',
         name: 'Console Log',

@@ -6,10 +6,12 @@
 import React from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { OrbitaNodeData, HardwareCategory } from '../../core/types';
+import { getDriver } from '../../core/drivers';
 import * as LucideIcons from 'lucide-react';
 
 const OrbitaNode: React.FC<NodeProps> = ({ data: nodeData, selected }) => {
     const data = nodeData as OrbitaNodeData;
+    const driver = getDriver(data.driverId);
 
     // Obtém o ícone dinamicamente
     const IconComponent = (LucideIcons as any)[data.icon] || LucideIcons.Box;
@@ -34,23 +36,38 @@ const OrbitaNode: React.FC<NodeProps> = ({ data: nodeData, selected }) => {
         ? 'shadow-xl shadow-white/20'
         : `shadow-lg ${categoryGlow[data.category] || 'shadow-gray-500/20'}`;
 
+    const inputs = driver?.inputs || [];
+    const outputs = driver?.outputs || [];
+
+    // Calcula offsets verticais para distribuir os handles
+    const handleOffset = (index: number, total: number) => {
+        const spacing = 22;
+        const start = -((total - 1) * spacing) / 2;
+        return start + index * spacing;
+    };
+
     return (
         <div
             className={`
         relative px-4 py-3 rounded-lg border-2 
         ${borderColor} ${glowColor}
         backdrop-blur-sm
-        min-w-[180px]
+        min-w-[200px]
         transition-all duration-200
         ${selected ? 'ring-2 ring-white/30' : ''}
       `}
         >
-            {/* Handles de entrada (topo) */}
-            <Handle
-                type="target"
-                position={Position.Top}
-                className="!w-3 !h-3 !bg-gray-600 !border-2 !border-gray-400 hover:!bg-gray-400"
-            />
+            {/* Handles de entrada (esquerda) */}
+            {inputs.map((input, index) => (
+                <Handle
+                    key={input.id}
+                    id={input.id}
+                    type="target"
+                    position={Position.Left}
+                    className="!w-3 !h-3 !bg-blue-500 !border-2 !border-blue-300 hover:!bg-blue-300"
+                    style={{ top: '50%', transform: `translate(-50%, ${handleOffset(index, inputs.length)}px)` }}
+                />
+            ))}
 
             {/* Conteúdo do nó */}
             <div className="flex items-center gap-3">
@@ -64,12 +81,17 @@ const OrbitaNode: React.FC<NodeProps> = ({ data: nodeData, selected }) => {
                 </div>
             </div>
 
-            {/* Handles de saída (base) */}
-            <Handle
-                type="source"
-                position={Position.Bottom}
-                className="!w-3 !h-3 !bg-gray-600 !border-2 !border-gray-400 hover:!bg-gray-400"
-            />
+            {/* Handles de saída (direita) */}
+            {outputs.map((output, index) => (
+                <Handle
+                    key={output.id}
+                    id={output.id}
+                    type="source"
+                    position={Position.Right}
+                    className="!w-3 !h-3 !bg-green-500 !border-2 !border-green-300 hover:!bg-green-300"
+                    style={{ top: '50%', transform: `translate(50%, ${handleOffset(index, outputs.length)}px)` }}
+                />
+            ))}
         </div>
     );
 };

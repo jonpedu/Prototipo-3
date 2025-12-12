@@ -12,6 +12,7 @@
 ## 📚 Índice
 
 - [Quick Start](#-quick-start)
+- [Inspector Dinâmico ⭐ NOVO](#-inspector-dinâmico--novo)
 - [Arquitetura de Software](#-arquitetura-de-software)
 - [Fluxo de Dados](#-fluxo-de-dados)
 - [Sistema de Componentes](#-sistema-de-componentes)
@@ -40,7 +41,65 @@ Edite `.env` e altere `VITE_USE_MOCK=false`
 
 ---
 
-## 🏗️ Arquitetura de Software
+## � Inspector Dinâmico ⭐ NOVO
+
+**ORBITA v2.1** introduz o **Inspector Sensível ao Contexto**, uma inovação que revoluciona a programação visual:
+
+### **O Problema (Antes)**
+```
+Sensor → Comparador → LED
+         ↑
+    Configure threshold
+```
+- Requer nó intermediário (Comparador)
+- Mais conexões = grafo poluído
+- Configuração separada do contexto
+
+### **A Solução (Agora)**
+```
+Sensor → LED
+         ↑
+    Configure threshold (automaticamente)
+```
+- LED detecta conexão de temperatura
+- Inspector mostra campos contextuais: "Condição" e "Limite"
+- Valores configurados diretamente no atuador
+
+### **Como Funciona**
+
+1. **Conecte** `Sensor.temperature` → `LED.temperature`
+2. **Inspector detecta** a conexão automaticamente
+3. **Card azul aparece** com parâmetros dinâmicos:
+   - Condição de Temperatura: `>` (maior que)
+   - Limite de Temperatura (°C): `30`
+4. **Código gerado:**
+   ```python
+   if temperature_sensor_001_temp > 30:
+       led_should_be_on = True
+   ```
+
+### **Benefícios**
+
+| Característica | Antes | Depois |
+|----------------|-------|--------|
+| Nós necessários | 3 | 2 |
+| Conexões | 2 | 1 |
+| Tempo de setup | ~60s | ~20s |
+| Complexidade visual | Alta | Baixa |
+
+### **Tutoriais Completos**
+
+📖 **[TUTORIAL_INSPECTOR_DINAMICO.md](./TUTORIAL_INSPECTOR_DINAMICO.md)**
+
+4 tutoriais passo a passo:
+1. LED Inteligente Básico
+2. LED com Múltiplas Condições
+3. Servo Motor Controlado por Valor
+4. Sistema de Alarme Avançado
+
+---
+
+## �🏗️ Arquitetura de Software
 
 ### **Visão Geral**
 

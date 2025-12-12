@@ -1,22 +1,25 @@
 # 🛰️ ORBITA - Status do Projeto
 
-## ✅ Implementação Completa - MVP v2 com Parâmetros Dinâmicos
+## ✅ Implementação Completa - MVP v2.1 com Inspector Dinâmico Sensível ao Contexto
 
-**Data Atualização**: 10 de dezembro de 2025  
+**Data Atualização**: 12 de dezembro de 2025  
 **Status**: ✅ Totalmente Funcional  
-**Versão**: 2.0 (MVP com Sistema Dinâmico)  
+**Versão**: 2.1 (MVP com Inspector Inteligente)  
 **Modo Ativo**: Mock para desenvolvimento
 
 ---
 
 ## 🎯 Resumo Executivo
 
-ORBITA é um ambiente de programação visual para nanossatélites que converte grafos visuais em código MicroPython executável. A versão atual (v2) introduz **parâmetros dinâmicos contextuais** que aparecem automaticamente baseados nas conexões entre componentes, permitindo lógica condicional complexa sem necessidade de nós intermediários.
+ORBITA é um ambiente de programação visual para nanossatélites que converte grafos visuais em código MicroPython executável. A versão atual (v2.1) implementa **Inspector Sensível ao Contexto** que reage dinamicamente às conexões entre nós, permitindo lógica condicional complexa sem necessidade de nós intermediários.
 
-**Principais Inovações v2:**
-- ✅ Sistema de parâmetros dinâmicos (Inspector inteligente)
-- ✅ LED com múltiplas entradas condicionais (temperatura, umidade, valor genérico)
-- ✅ Transpilador processa condicionais `{{#if}}...{{/if}}`
+**Principais Inovações v2.1:**
+- ✅ **Inspector Dinâmico** - Parâmetros aparecem baseados em conexões reais
+- ✅ **LED Inteligente** - Aceita 4 tipos de entrada (temperatura, umidade, valor, estado direto)
+- ✅ **Servo Motor** - Novo atuador com controle condicional e mapeamento de valores
+- ✅ **Transpilador Aprimorado** - Processa parâmetros dinâmicos corretamente
+- ✅ **Cards Contextuais** - UI diferenciada para parâmetros estáticos vs dinâmicos
+- ✅ **Sistema de Logic Rules** - Automações baseadas em sensores conectados
 - ✅ Setas direcionais nas conexões (feedback visual)
 - ✅ Deleção via teclado (Delete/Backspace)
 - ✅ Seleção múltipla (Ctrl+click)
@@ -114,42 +117,64 @@ ORBITA é um ambiente de programação visual para nanossatélites que converte 
      - Saídas: `temperature`, `humidity`
      - Parâmetros: pin, sensor_type, interval
   
-  3. **LED** (atuador) ⭐ NOVO v2
+  3. **LED** (atuador) ⭐ INTELIGENTE v2.1
      - **Entradas**: `temperature`, `humidity`, `value`, `state`
      - Parâmetros estáticos: pin
-     - **Parâmetros dinâmicos (por entrada conectada):**
+     - **Parâmetros dinâmicos (aparecem quando conectado):**
        - `temperature` → operador + threshold (°C)
        - `humidity` → operador + threshold (%)
        - `value` → operador + threshold (genérico)
-       - `state` → direto (boolean)
+       - `state` → direto (boolean, sobrescreve condições)
   
-  4. **Console Log** (atuador)
+  4. **Servo Motor** (atuador) ⭐ NOVO v2.1
+     - **Entradas**: `temperature`, `value`, `angle`
+     - Parâmetros estáticos: pin, default_angle
+     - **Parâmetros dinâmicos (aparecem quando conectado):**
+       - `temperature` → operador + threshold + ângulo_alvo
+       - `value` → mapeamento (min/max de entrada para 0-180°)
+       - `angle` → controle direto do ângulo
+     - Gera código PWM com duty cycle calculado
+  
+  5. **Console Log** (atuador)
      - Entradas: `value`
      - Parâmetros: prefix
   
-  5. **Comparador** (lógica)
+  6. **Comparador** (lógica)
      - Entradas: `a`, `b`
      - Saídas: `result`
      - Parâmetros: operator (>, <, ==, !=, >=, <=)
   
-  6. **Limiar** (lógica)
+  7. **Limiar** (lógica)
      - Entradas: `value`
      - Saídas: `active`
      - Parâmetros: threshold, mode (above/below)
 
-### ✅ Inspector Inteligente ⭐ NOVIDADE v2
-- [x] Edição de nome do componente
-- [x] **Detecção automática de conexões**
-- [x] Parâmetros estáticos (card cinza)
-- [x] **Parâmetros dinâmicos (card azul)**
-  - Aparecem **apenas quando entrada correspondente está conectada**
-  - Título dinâmico: "Condições da Entrada 'Temperatura'"
-  - Suporte a múltiplas entradas simultaneamente
-- [x] Campos numéricos com min/max
-- [x] Select dropdowns
-- [x] Checkboxes
-- [x] Visualização de portas (inputs/outputs)
-- [x] Botão de remoção
+### ✅ Inspector Sensível ao Contexto ⭐ IMPLEMENTADO v2.1
+- [x] **Edição de nome do componente**
+- [x] **Detecção automática de conexões em tempo real**
+  - Usa hook `useNodeConnections()` para monitorar edges
+  - Renderiza UI dinamicamente quando conexões são criadas/removidas
+- [x] **Parâmetros Estáticos** (card cinza padrão)
+  - Sempre visíveis
+  - Ex: GPIO pin, intervalos, prefixos
+- [x] **Parâmetros Dinâmicos** (card azul com ícone ⚡)
+  - Aparecem **APENAS quando entrada correspondente está conectada**
+  - Título dinâmico: "Condições: Temperatura"
+  - Mostra fonte da conexão: "Conectado a: Sensor DHT → Temperatura"
+  - Suporta múltiplas entradas simultaneamente (ex: temp + humidity)
+  - Definidos no driver via campo `dynamicParameters[]`
+- [x] **Sistema de Logic Rules** (card roxo)
+  - Para atuadores com conexões de sensores
+  - Configuração de gatilhos: condição + valor + ação
+  - Operadores: >, <, >=, <=, ==, !=
+  - Ações: Ligar, Desligar, Definir Valor
+- [x] **Tipos de campos suportados**
+  - Input numérico (com min/max)
+  - Select dropdown (com opções customizadas)
+  - Checkbox (boolean)
+  - Text input (strings)
+- [x] Visualização de portas (inputs/outputs com tipos de dados)
+- [x] Botão de remoção com confirmação visual
 
 ### ✅ Transpilador Topológico
 - [x] Ordenação topológica (Kahn's Algorithm)
@@ -198,20 +223,22 @@ ORBITA é um ambiente de programação visual para nanossatélites que converte 
 
 ## 🚀 Como Usar o Sistema
 
-### **Exemplo 1: LED Controlado por Temperatura**
+### **Exemplo 1: LED Controlado por Temperatura** ⭐ NOVO FLUXO v2.1
 
 1. **Arraste "Sensor de Temperatura"** para o canvas
 2. **Arraste "LED"** para o canvas
-3. **Conecte** `DHT11.temperature` → `LED.temperature`
+3. **Conecte** a porta `temperature` do sensor à porta `temperature` do LED
 4. **Selecione o LED** no canvas
-5. **Inspector mostra automaticamente:**
-   - Pino GPIO: 2
-   - **Card azul "Condições da Entrada 'Temperatura'":**
-     - Condição: `>` (maior que)
-     - Limite (°C): `30`
-6. **Clique "Conectar"** na toolbar
-7. **Clique "Upload"**
-8. **Console mostra:**
+5. **Inspector detecta a conexão e mostra automaticamente:**
+   - **Card cinza (estático):** Pino GPIO: 2
+   - **Card azul (dinâmico) ⚡ "Condições: Temperatura":**
+     - Conectado a: "Sensor DHT → Temperatura"
+     - Condição de Temperatura: `>` (maior que)
+     - Limite de Temperatura (°C): `30`
+6. **Ajuste os valores** (ex: mude para `<` e `25`)
+7. **Clique "Conectar"** na toolbar
+8. **Clique "Upload"**
+9. **Console mostra:**
    ```
    ✓ Conexão estabelecida
    ✓ Código transpilado (2 nós)
@@ -220,12 +247,40 @@ ORBITA é um ambiente de programação visual para nanossatélites que converte 
    DATA: temp=25.3
    ```
 
-**Código Gerado:**
+**Código MicroPython Gerado:**
 ```python
-if temperature_sensor_001_temperature > 30:
-    led_should_be_on = True
+from machine import Pin
+import dht
+import time
 
-led_output_001.value(1 if led_should_be_on else 0)
+# ===== INICIALIZAÇÃO =====
+temperature_sensor_001_sensor = dht.DHT11(Pin(4))
+temperature_sensor_001_last_read = 0
+temperature_sensor_001_temp = 0
+temperature_sensor_001_hum = 0
+
+led_output_001_led = Pin(2, Pin.OUT)
+
+# ===== LOOP PRINCIPAL =====
+while True:
+    if time.ticks_diff(time.ticks_ms(), temperature_sensor_001_last_read) >= 2000:
+        try:
+            temperature_sensor_001_sensor.measure()
+            temperature_sensor_001_temp = temperature_sensor_001_sensor.temperature()
+            temperature_sensor_001_hum = temperature_sensor_001_sensor.humidity()
+            temperature_sensor_001_last_read = time.ticks_ms()
+        except Exception as e:
+            print("Erro DHT:", e)
+    
+    # LED avalia condições
+    led_should_be_on = False
+    
+    if temperature_sensor_001_temp < 25:
+        led_should_be_on = True
+    
+    led_output_001_led.value(1 if led_should_be_on else 0)
+    
+    time.sleep_ms(50)
 ```
 
 ### **Exemplo 2: LED com Múltiplas Condições**
@@ -398,6 +453,176 @@ loopCode = loopCode.replace(
 
 // Se 'temperature' está conectada → mantém bloco
 // Se 'humidity' NÃO está conectada → remove bloco
+```
+
+---
+
+## 🧩 Sistema de Parâmetros Dinâmicos - Detalhamento Técnico ⭐ NOVO v2.1
+
+### **Conceito**
+
+O sistema permite que atuadores exibam parâmetros de configuração **contextuais** baseados nas conexões reais de entrada. Isso elimina a necessidade de nós intermediários de lógica para cenários comuns.
+
+### **Estrutura de Dados**
+
+#### **1. Driver Definition (drivers.ts)**
+
+```typescript
+interface HardwareDriver {
+  // ... outros campos
+  
+  // Parâmetros fixos (sempre visíveis)
+  parameters: [
+    { id: 'pin', label: 'Pino GPIO', type: 'number', default: 2 }
+  ],
+  
+  // Parâmetros dinâmicos (aparecem quando input conectado)
+  dynamicParameters: [
+    {
+      inputId: 'temperature',  // Porta de entrada que ativa esses parâmetros
+      parameters: [
+        {
+          id: 'temp_operator',
+          label: 'Condição de Temperatura',
+          type: 'select',
+          default: '>',
+          options: [
+            { value: '>', label: 'Maior que (>)' },
+            { value: '<', label: 'Menor que (<)' }
+          ]
+        },
+        {
+          id: 'temp_threshold',
+          label: 'Limite de Temperatura (°C)',
+          type: 'number',
+          default: 30,
+          min: -50,
+          max: 100
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### **2. Node Data (types.ts)**
+
+```typescript
+interface OrbitaNodeData {
+  driverId: string;
+  label: string;
+  
+  // Armazena TODOS os parâmetros (estáticos + dinâmicos)
+  parameters: Record<string, any>; // Ex: { pin: 2, temp_operator: '>', temp_threshold: 30 }
+  
+  // OPCIONAL: Armazena separadamente para melhor organização
+  dynamicInputParameters?: Record<string, Record<string, any>>;
+}
+```
+
+#### **3. Inspector Rendering (Inspector.tsx)**
+
+```tsx
+// Para cada grupo de parâmetros dinâmicos no driver
+{driver.dynamicParameters?.map(dynamicGroup => {
+  // Verifica se há uma edge conectada na porta especificada
+  const hasConnection = edges.some(edge =>
+    edge.target === selectedNode.id && 
+    edge.targetHandle === dynamicGroup.inputId
+  );
+
+  // Se não há conexão, não renderiza nada
+  if (!hasConnection) return null;
+
+  // Se há conexão, renderiza o card com os parâmetros
+  return (
+    <Card className="bg-blue-900/20 border-blue-700/50">
+      <h3>Condições: {dynamicGroup.inputId}</h3>
+      {dynamicGroup.parameters.map(param => (
+        <Input 
+          value={selectedNode.data.parameters[param.id] ?? param.default}
+          onChange={handleParameterChange}
+        />
+      ))}
+    </Card>
+  );
+})}
+```
+
+### **Fluxo Completo de Uso**
+
+```
+1. USUÁRIO conecta Sensor.temperature → LED.temperature
+                    ↓
+2. REACT FLOW atualiza edges[] no store Zustand
+                    ↓
+3. INSPECTOR re-renderiza (detecta mudança em edges via useOrbitaStore)
+                    ↓
+4. LOOP em driver.dynamicParameters:
+   - inputId = 'temperature'
+   - edges.some() retorna TRUE (conexão existe)
+   - Renderiza Card azul com campos temp_operator, temp_threshold
+                    ↓
+5. USUÁRIO altera temp_operator para '<' e temp_threshold para '25'
+                    ↓
+6. handleParameterChange() chama:
+   Store.updateNodeData(nodeId, {
+     parameters: { ...existing, temp_operator: '<', temp_threshold: 25 }
+   })
+                    ↓
+7. TRANSPILER lê node.data.parameters ao gerar código:
+   - Substitui {{temp_operator}} → '<'
+   - Substitui {{temp_threshold}} → '25'
+                    ↓
+8. CÓDIGO FINAL:
+   if temperature_sensor_001_temp < 25:
+       led_should_be_on = True
+```
+
+### **Vantagens da Abordagem**
+
+| Característica | Sem Parâmetros Dinâmicos | Com Parâmetros Dinâmicos ⭐ |
+|----------------|---------------------------|----------------------------|
+| **Cenário**: LED liga se temp > 30°C | | |
+| Nós necessários | 3 (Sensor + Comparador + LED) | 2 (Sensor + LED) |
+| Configurações | Comparador: operador, threshold | LED: operador, threshold |
+| Conexões | 2 (Sensor→Comparador, Comparador→LED) | 1 (Sensor→LED) |
+| Complexidade visual | Alta (grafo denso) | Baixa (grafo limpo) |
+| Código gerado | 2 blocos separados | 1 bloco integrado |
+| Tempo de setup | ~60 segundos | ~20 segundos |
+
+### **Casos de Uso Reais**
+
+#### **Caso 1: Sistema de Ventilação**
+```
+Sensor Temp → Servo Motor
+Parâmetros Dinâmicos:
+  - temp > 30°C → Ângulo 180° (ventilador máximo)
+  - temp < 20°C → Ângulo 0° (ventilador desligado)
+```
+
+#### **Caso 2: Alarme Triplo**
+```
+Sensor Temp → LED
+Sensor Umidade → LED (mesma LED)
+Sensor Pressão → LED (mesma LED)
+
+Inspector mostra 3 cards azuis:
+  - Temperatura > 40°C
+  - Umidade < 20%
+  - Pressão < 900 hPa
+
+LED liga se QUALQUER condição for verdadeira (OR lógico)
+```
+
+#### **Caso 3: Mapeamento de Valores**
+```
+Potenciômetro (0-100) → Servo Motor
+Parâmetros Dinâmicos:
+  - Valor Min Entrada: 0
+  - Valor Max Entrada: 100
+  
+Código gerado faz mapeamento linear para 0-180°
 ```
 
 ---

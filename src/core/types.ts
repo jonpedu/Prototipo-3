@@ -166,9 +166,13 @@ export interface OrbitaNodeData extends Record<string, unknown> {
 
     // Variáveis geradas no transpile
     outputVariables?: Record<string, string>; // Ex: { temp: "sensor_temp_001" }
-    
+
     // Regras lógicas (apenas para atuadores)
     logicRules?: LogicRule[];
+
+    // Parâmetros dinâmicos baseados em conexões de entrada
+    // Chave: inputId (ex: "temperature"), Valor: objeto com valores dos parâmetros dinâmicos
+    dynamicInputParameters?: Record<string, Record<string, any>>;
 }
 
 /**

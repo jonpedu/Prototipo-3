@@ -17,6 +17,16 @@ export const Inspector: React.FC = () => {
     const { selectedNode, updateNodeData, deleteNode, selectNode, edges, hardwareProfile } = useOrbitaStore();
     const connections = useNodeConnections(selectedNode?.id || null);
 
+    // Debug: log para verificar se está detectando conexões
+    React.useEffect(() => {
+        if (selectedNode) {
+            console.log('🔍 Inspector - Nó selecionado:', selectedNode.data.label);
+            console.log('🔗 Conexões detectadas:', connections.length);
+            console.log('📊 Edges totais:', edges.length);
+            console.log('🎯 Edges para este nó:', edges.filter(e => e.target === selectedNode.id));
+        }
+    }, [selectedNode, connections, edges]);
+
     if (!selectedNode) {
         return (
             <div className="w-80 bg-gray-950 border-l border-gray-800 p-4">
@@ -140,7 +150,7 @@ export const Inspector: React.FC = () => {
                         <div className="space-y-3">
                             {driver.parameters.map(param => {
                                 const value = selectedNode.data.parameters[param.id] ?? param.default;
-                                
+
                                 // Hardware profile constraints para pinos GPIO
                                 const isGpioPin = param.id === 'pin';
                                 const pinIsLocked = isGpioPin && isPinLocked(hardwareProfile, selectedNode.data.driverId);
@@ -235,13 +245,35 @@ export const Inspector: React.FC = () => {
                         edge.target === selectedNode.id && edge.targetHandle === dynamicGroup.inputId
                     );
 
+                    // Debug
+                    console.log(`🎨 Verificando parâmetro dinâmico para inputId: ${dynamicGroup.inputId}`, {
+                        hasConnection,
+                        targetNode: selectedNode.id,
+                        edges: edges.filter(e => e.target === selectedNode.id).map(e => ({
+                            source: e.source,
+                            targetHandle: e.targetHandle,
+                            sourceHandle: e.sourceHandle
+                        }))
+                    });
+
                     if (!hasConnection) return null;
+
+                    const inputPort = driver.inputs.find(i => i.id === dynamicGroup.inputId);
+                    const connectedSource = connections.find(c => c.targetHandle === dynamicGroup.inputId);
 
                     return (
                         <Card key={dynamicGroup.inputId} className="bg-blue-900/20 border-blue-700/50">
-                            <h3 className="text-sm font-semibold text-blue-300 mb-3">
-                                Condições da Entrada "{driver.inputs.find(i => i.id === dynamicGroup.inputId)?.label}"
-                            </h3>
+                            <div className="flex items-center gap-2 mb-3">
+                                <Zap className="w-4 h-4 text-blue-400" />
+                                <h3 className="text-sm font-semibold text-blue-300">
+                                    Condições: {inputPort?.label || dynamicGroup.inputId}
+                                </h3>
+                            </div>
+                            {connectedSource && (
+                                <div className="text-xs text-blue-300/70 mb-3">
+                                    Conectado a: "{connectedSource.sourceNode.data.label}" → {connectedSource.sourceHandleLabel}
+                                </div>
+                            )}
 
                             <div className="space-y-3">
                                 {dynamicGroup.parameters.map(param => {
@@ -311,7 +343,7 @@ export const Inspector: React.FC = () => {
                         <div className="space-y-4">
                             {connections.map(connection => {
                                 const rule = getLogicRule(connection.sourceNode.id, connection.sourceHandle);
-                                
+
                                 return (
                                     <div key={`${connection.sourceNode.id}-${connection.sourceHandle}`} className="p-3 bg-gray-800/50 rounded border border-purple-700/30">
                                         <div className="text-xs font-medium text-purple-200 mb-2">
