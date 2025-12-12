@@ -245,7 +245,7 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
 
         saveMission: () => {
             const { nodes, edges, hardwareProfile } = get();
-            
+
             const missionData = {
                 version: '2.0',
                 timestamp: new Date().toISOString(),
@@ -257,7 +257,7 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
             const dataStr = JSON.stringify(missionData, null, 2);
             const blob = new Blob([dataStr], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
-            
+
             const link = document.createElement('a');
             link.href = url;
             link.download = `missao-${Date.now()}.orbita`;
@@ -276,7 +276,7 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
         loadMission: (data) => {
             try {
                 const missionData = JSON.parse(data);
-                
+
                 // Validação básica
                 if (!missionData.nodes || !missionData.edges) {
                     throw new Error('Arquivo inválido: estrutura incorreta');
