@@ -427,7 +427,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
 {{var_name}}_blink_done = 0
 `.trim(),
             loopCode: `
-# Entrada única adaptativa: bool liga/desliga; número usa condição para ligar/desligar
+# Entrada única adaptativa: bool liga/desliga; número tratado como verdade/falso (não escala brilho)
 has_input = False
 input_on = False
 
@@ -438,7 +438,8 @@ try:
     if isinstance(_val, bool):
         input_on = bool(_val)
     else:
-        input_on = float(_val) != 0
+        _num = float(_val)
+        input_on = _num != 0
 except Exception as _e:
     input_on = bool({{input_input}})
 {{/if}}
@@ -546,7 +547,7 @@ else:
 {{var_name}}_repeat_done = 0
 `.trim(),
             loopCode: `
-# Entrada única adaptativa: bool liga/desliga; número toca se for diferente de zero
+# Entrada única adaptativa: bool liga/desliga; número tratado como verdade/falso
 should_beep = False
 has_input = False
 
@@ -557,7 +558,8 @@ try:
     if isinstance(_val, bool):
         should_beep = bool(_val)
     else:
-        should_beep = float(_val) != 0
+        _num = float(_val)
+        should_beep = _num != 0
 except Exception as _e:
     should_beep = bool({{input_input}})
 {{/if}}
@@ -1105,3 +1107,4 @@ export function getDriversByCategory(category: HardwareCategory): HardwareDriver
 export function getAllDrivers(): HardwareDriver[] {
     return Object.values(DRIVER_REGISTRY);
 }
+

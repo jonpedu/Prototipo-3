@@ -70,7 +70,7 @@ interface OrbitaStore extends AppState {
 }
 
 const MISSION_SCHEMA_VERSION = '2.1';
-const DRIVER_SIGNATURE = 'drivers-2025-12-12';
+const DRIVER_SIGNATURE = 'drivers-2025-12-14';
 
 export const useOrbitaStore = create<OrbitaStore>((set, get) => {
 
@@ -82,6 +82,33 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
     serialBridge.onTelemetry((message) => {
         get().addTelemetryMessage(message);
     });
+
+    // Helper interno: ajusta parâmetros derivados das ações (ex: LED branco vs RGB)
+    const deriveParamsFromActions = (node: OrbitaNode): OrbitaNode => {
+        const driver = getDriver(node.data.driverId);
+        if (!driver || driver.id !== 'led_output') return node;
+
+        const actions = node.data.actions || [];
+        if (actions.length === 0) return node;
+
+        const params = { ...node.data.parameters };
+        const hasRgb = actions.some(a => a.type === 'led_fixed_rgb');
+        const hasWhite = actions.some(a => ['led_blink', 'led_fixed_white', 'led_alert'].includes(a.type));
+
+        if (hasRgb) {
+            params.led_type = 'rgb';
+        } else if (hasWhite) {
+            params.led_type = 'white';
+        }
+
+        return {
+            ...node,
+            data: {
+                ...node.data,
+                parameters: params
+            }
+        };
+    };
 
     return {
         // ==================== ESTADO INICIAL ====================
@@ -300,6 +327,24 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
             try {
                 const missionData = JSON.parse(data);
 
+                const remapActuatorEdges = (edges: OrbitaEdge[], nodes: OrbitaNode[]): OrbitaEdge[] => {
+                    const actuatorIds = new Set(
+                        nodes
+                            .filter(n => ['led_output', 'buzzer'].includes(n.data.driverId))
+                            .map(n => n.id)
+                    );
+
+                    return edges.map(edge => {
+                        if (!actuatorIds.has(edge.target)) return edge;
+                        if (!edge.targetHandle) return edge;
+                        const legacyHandles = ['state', 'value', 'temperature', 'humidity'];
+                        if (legacyHandles.includes(edge.targetHandle)) {
+                            return { ...edge, targetHandle: 'input' } as OrbitaEdge;
+                        }
+                        return edge;
+                    });
+                };
+
                 // Validação básica
                 if (!missionData.nodes || !missionData.edges) {
                     throw new Error('Arquivo inválido: estrutura incorreta');
@@ -334,9 +379,11 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
                 get().clearCanvas();
 
                 // Restaura estado
+                const remappedEdges = remapActuatorEdges(missionData.edges, missionData.nodes);
+
                 set({
                     nodes: missionData.nodes,
-                    edges: missionData.edges,
+                    edges: remappedEdges,
                     hardwareProfile: missionData.hardwareProfile || HardwareProfileType.GENERIC_ESP32,
                     selectedNode: null,
                     selectedActionId: null
@@ -397,9 +444,11 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
                 }
             };
 
+            const withDerived = deriveParamsFromActions(updatedNode);
+
             set({
-                nodes: get().nodes.map(n => (n.id === nodeId ? updatedNode : n)),
-                selectedNode: get().selectedNode?.id === nodeId ? updatedNode : get().selectedNode,
+                nodes: get().nodes.map(n => (n.id === nodeId ? withDerived : n)),
+                selectedNode: get().selectedNode?.id === nodeId ? withDerived : get().selectedNode,
                 selectedActionId: newAction.id
             });
         },
@@ -417,11 +466,13 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
                 }
             };
 
+            const withDerived = deriveParamsFromActions(updatedNode);
+
             const nextSelectedAction = get().selectedActionId === actionId ? null : get().selectedActionId;
 
             set({
-                nodes: get().nodes.map(n => (n.id === nodeId ? updatedNode : n)),
-                selectedNode: get().selectedNode?.id === nodeId ? updatedNode : get().selectedNode,
+                nodes: get().nodes.map(n => (n.id === nodeId ? withDerived : n)),
+                selectedNode: get().selectedNode?.id === nodeId ? withDerived : get().selectedNode,
                 selectedActionId: nextSelectedAction
             });
         },
@@ -444,9 +495,11 @@ export const useOrbitaStore = create<OrbitaStore>((set, get) => {
                 }
             };
 
+            const withDerived = deriveParamsFromActions(updatedNode);
+
             set({
-                nodes: get().nodes.map(n => (n.id === nodeId ? updatedNode : n)),
-                selectedNode: get().selectedNode?.id === nodeId ? updatedNode : get().selectedNode
+                nodes: get().nodes.map(n => (n.id === nodeId ? withDerived : n)),
+                selectedNode: get().selectedNode?.id === nodeId ? withDerived : get().selectedNode
             });
         },
 

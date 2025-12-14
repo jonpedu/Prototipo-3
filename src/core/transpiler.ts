@@ -426,6 +426,8 @@ ${loopLines.map(line => '    ' + line.split('\n').join('\n    ')).join('\n')}
             params.blink_count_enabled = false;
             params.action_white_mode = 'none';
             params.action_white_state = false;
+            params.value_operator = params.value_operator || '>';
+            params.value_threshold = params.value_threshold ?? 0;
 
             const colorMap: Record<string, number> = {
                 red: 1,
@@ -461,11 +463,9 @@ ${loopLines.map(line => '    ' + line.split('\n').join('\n    ')).join('\n')}
                         params.led_type = 'rgb';
                         const color = action.config.preset as string;
                         params.preset_color = colorMap[color] ?? 0;
-                        params.brightness_pct = action.config.brightness ?? 70;
                         break;
                     }
                     case 'led_alert': {
-                        // Mantem parametros condicionais basicos (usa porta value)
                         params.value_operator = action.config.operator ?? '>';
                         params.value_threshold = action.config.threshold ?? 30;
                         params.led_type = params.led_type || 'white';

@@ -54,6 +54,7 @@ export const Inspector: React.FC = () => {
     const actions = selectedNode.data.actions || [];
     const selectedAction = actions.find(action => action.id === selectedActionId) || null;
     const selectedActionDefinition = selectedAction ? getActionDefinition(selectedAction.type) : null;
+    const hasLedAction = actions.some(action => action.type.startsWith('led_'));
 
     const warnings: string[] = [];
 
@@ -167,6 +168,8 @@ export const Inspector: React.FC = () => {
             targetLabel
         };
     });
+
+    const sensorConnections = connections.filter(c => c.sourceNode.data.category === HardwareCategory.SENSOR);
 
     const handleActionFieldChange = (fieldId: string, value: any) => {
         if (!selectedAction) return;
@@ -364,6 +367,9 @@ export const Inspector: React.FC = () => {
                                 const pinIsLocked = profilePin !== null && isPinField;
                                 const profileName = pinIsLocked ? getHardwareProfile(hardwareProfile).name : '';
 
+                                const isLedTypeField = param.id === 'led_type';
+                                const selectDisabled = isLedTypeField && hasLedAction;
+
                                 const value = pinIsLocked
                                     ? profilePin
                                     : (selectedNode.data.parameters[param.id] ?? param.default);
@@ -371,7 +377,6 @@ export const Inspector: React.FC = () => {
                                 const hideForAction = (
                                     (driver.id === 'led_output' && [
                                         'preset_color',
-                                        'brightness_pct',
                                         'blink_enabled',
                                         'blink_interval',
                                         'blink_duty',
@@ -395,7 +400,7 @@ export const Inspector: React.FC = () => {
                                     const mode = selectedNode.data.parameters['led_type'] || 'white';
                                     const isRgb = mode === 'rgb';
 
-                                    if (!isRgb && ['pin_r', 'pin_g', 'pin_b', 'preset_color', 'brightness_pct'].includes(param.id)) {
+                                    if (!isRgb && ['pin_r', 'pin_g', 'pin_b', 'preset_color'].includes(param.id)) {
                                         return null;
                                     }
                                     if (isRgb && ['pin', 'blink_enabled', 'blink_interval', 'blink_duty', 'blink_count_enabled', 'blink_count'].includes(param.id)) {
@@ -420,6 +425,9 @@ export const Inspector: React.FC = () => {
                                             {pinLabel || param.label}
                                             {pinIsLocked && (
                                                 <span className="ml-2 text-xs text-yellow-500" title={`Travado pelo perfil ${profileName}`}>(Travado)</span>
+                                            )}
+                                            {selectDisabled && (
+                                                <span className="ml-2 text-xs text-blue-400" title="Definido automaticamente pela ação anexada">(Definido pela ação)</span>
                                             )}
                                         </label>
 
@@ -476,12 +484,15 @@ export const Inspector: React.FC = () => {
                                             <select
                                                 value={value}
                                                 onChange={(e) => handleParameterChange(param.id, e.target.value)}
-                                                className="
-                          w-full px-3 py-2 rounded
-                          bg-gray-800 border border-gray-700
-                          text-gray-200 text-sm
-                          focus:outline-none focus:ring-2 focus:ring-blue-500
-                        "
+                                                disabled={selectDisabled}
+                                                tabIndex={selectDisabled ? -1 : undefined}
+                                                className={`
+                                                    w-full px-3 py-2 rounded
+                                                    bg-gray-800 border border-gray-700
+                                                    text-gray-200 text-sm
+                                                    focus:outline-none focus:ring-2 focus:ring-blue-500
+                                                    ${selectDisabled ? 'opacity-60 cursor-not-allowed' : ''}
+                                                `}
                                             >
                                                 {param.options.map(opt => (
                                                     <option key={opt.value} value={opt.value}>
@@ -498,7 +509,7 @@ export const Inspector: React.FC = () => {
                 )}
 
                 {/* Parâmetros Dinâmicos (baseados em conexões) */}
-                {driver.dynamicParameters && driver.dynamicParameters.map(dynamicGroup => {
+                {driver.category !== HardwareCategory.ACTUATOR && driver.dynamicParameters && driver.dynamicParameters.map(dynamicGroup => {
                     // Verifica se há uma conexão na porta especificada
                     const hasConnection = edges.some(edge =>
                         edge.target === selectedNode.id && edge.targetHandle === dynamicGroup.inputId
@@ -576,7 +587,7 @@ export const Inspector: React.FC = () => {
                 })}
 
                 {/* Seção de Lógica/Automação para Atuadores com Conexões de Sensores */}
-                {selectedNode.data.category === HardwareCategory.ACTUATOR && connections.length > 0 && (
+                {selectedNode.data.category === HardwareCategory.ACTUATOR && sensorConnections.length > 0 && (
                     <Card className="bg-purple-900/20 border-purple-700/50">
                         <div className="flex items-center gap-2 mb-3">
                             <Zap className="w-4 h-4 text-purple-400" />
@@ -589,7 +600,7 @@ export const Inspector: React.FC = () => {
                         </p>
 
                         <div className="space-y-4">
-                            {connections.map(connection => {
+                            {sensorConnections.map(connection => {
                                 const rule = getLogicRule(connection.sourceNode.id, connection.sourceHandle);
 
                                 return (

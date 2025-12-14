@@ -77,7 +77,9 @@ export const PION_CANSAT_V1: HardwareProfile = {
 
         // Lógica simples
         'sequence_timer',
-        'delay_trigger'
+        'delay_trigger',
+        'comparator',
+        'threshold'
     ]
 };
 
@@ -134,7 +136,9 @@ export const CUBESAT_V1: HardwareProfile = {
 
         // Lógica simples
         'sequence_timer',
-        'delay_trigger'
+        'delay_trigger',
+        'comparator',
+        'threshold'
     ]
 };
 

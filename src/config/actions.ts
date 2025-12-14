@@ -21,7 +21,7 @@ export const ACTION_DEFINITIONS: ActionDefinition[] = [
     {
         id: 'led_fixed_white',
         label: 'LED Branco Fixo',
-        description: 'Mantem o LED branco ligado com brilho ajustavel.',
+        description: 'Mantém o LED branco ligado em brilho máximo.',
         driverIds: ['led_output'],
         fields: [
             {
@@ -29,14 +29,13 @@ export const ACTION_DEFINITIONS: ActionDefinition[] = [
                     { value: 'on', label: 'Ligado' },
                     { value: 'off', label: 'Desligado' }
                 ]
-            },
-            { id: 'brightness', label: 'Brilho (%)', type: 'number', default: 100, min: 1, max: 100 }
+            }
         ]
     },
     {
         id: 'led_fixed_rgb',
         label: 'Cor Fixa (RGB)',
-        description: 'Define uma cor fixa com brilho ajustavel para LEDs RGB.',
+        description: 'Define uma cor fixa (brilho máximo) para LEDs RGB.',
         driverIds: ['led_output'],
         fields: [
             {
@@ -49,8 +48,7 @@ export const ACTION_DEFINITIONS: ActionDefinition[] = [
                     { value: 'yellow', label: 'Amarelo' },
                     { value: 'white', label: 'Branco' }
                 ]
-            },
-            { id: 'brightness', label: 'Brilho (%)', type: 'number', default: 70, min: 5, max: 100 }
+            }
         ]
     },
     {
