@@ -1,12 +1,12 @@
 ﻿/**
  * ORBITA - Driver Registry
- * Registro est├ítico de drivers de hardware com c├│digo MicroPython embutido
+ * Registro estático de drivers de hardware com código MicroPython embutido
  */
 
 import { HardwareDriver, HardwareCategory, DataType } from './types';
 
 /**
- * Registro global de drivers dispon├¡veis
+ * Registro global de drivers disponíveis
  */
 export const DRIVER_REGISTRY: Record<string, HardwareDriver> = {
     // ==================== SENSORES ====================
@@ -15,7 +15,7 @@ export const DRIVER_REGISTRY: Record<string, HardwareDriver> = {
         id: 'data_generator',
         name: 'Gerador de Dados',
         category: HardwareCategory.SENSOR,
-        description: 'Gera valores num├®ricos simulados (├║til para testes)',
+        description: 'Gera valores numéricos simulados (útil para testes)',
         icon: 'Waveform',
 
         inputs: [
@@ -26,8 +26,8 @@ export const DRIVER_REGISTRY: Record<string, HardwareDriver> = {
         ],
 
         parameters: [
-            { id: 'min', label: 'Valor M├¡nimo', type: 'number', default: 0, min: -1000, max: 1000 },
-            { id: 'max', label: 'Valor M├íximo', type: 'number', default: 100, min: -1000, max: 1000 },
+            { id: 'min', label: 'Valor Mínimo', type: 'number', default: 0, min: -1000, max: 1000 },
+            { id: 'max', label: 'Valor Máximo', type: 'number', default: 100, min: -1000, max: 1000 },
             { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 1000, min: 100, max: 10000 }
         ],
 
@@ -46,7 +46,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last_time) >= {{interval}}:
         id: 'temperature_sensor',
         name: 'Sensor de Temperatura',
         category: HardwareCategory.SENSOR,
-        description: 'L├¬ temperatura de um sensor DHT11/DHT22',
+        description: 'Lê temperatura de um sensor DHT11/DHT22',
         icon: 'Thermometer',
 
         inputs: [
@@ -97,20 +97,20 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last_read) >= {{interval}}:
         id: 'bme280_sensor',
         name: 'BME/BMP280',
         category: HardwareCategory.SENSOR,
-        description: 'Temperatura, press├úo e umidade via I2C (SDA21/SCL22)',
+        description: 'Temperatura, pressão e umidade via I2C (SDA21/SCL22)',
         icon: 'Cloud',
 
         inputs: [],
         outputs: [
             { id: 'temperature', label: 'Temperatura', type: DataType.NUMBER },
             { id: 'humidity', label: 'Umidade', type: DataType.NUMBER },
-            { id: 'pressure', label: 'Press├úo', type: DataType.NUMBER }
+            { id: 'pressure', label: 'Pressão', type: DataType.NUMBER }
         ],
 
         parameters: [
             { id: 'sda', label: 'SDA', type: 'number', default: 21, min: 0, max: 39 },
             { id: 'scl', label: 'SCL', type: 'number', default: 22, min: 0, max: 39 },
-            { id: 'address', label: 'Endere├ºo I2C', type: 'string', default: '0x76' },
+            { id: 'address', label: 'Endereço I2C', type: 'string', default: '0x76' },
             { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 2000, min: 200, max: 60000 }
         ],
 
@@ -154,7 +154,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
         parameters: [
             { id: 'sda', label: 'SDA', type: 'number', default: 21, min: 0, max: 39 },
             { id: 'scl', label: 'SCL', type: 'number', default: 22, min: 0, max: 39 },
-            { id: 'address', label: 'Endere├ºo I2C', type: 'string', default: '0x44' },
+            { id: 'address', label: 'Endereço I2C', type: 'string', default: '0x44' },
             { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 2000, min: 200, max: 60000 }
         ],
 
@@ -200,7 +200,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
         parameters: [
             { id: 'sda', label: 'SDA', type: 'number', default: 21, min: 0, max: 39 },
             { id: 'scl', label: 'SCL', type: 'number', default: 22, min: 0, max: 39 },
-            { id: 'address', label: 'Endere├ºo I2C', type: 'string', default: '0x5A' },
+            { id: 'address', label: 'Endereço I2C', type: 'string', default: '0x5A' },
             { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 5000, min: 1000, max: 60000 }
         ],
 
@@ -213,7 +213,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
 {{var_name}}_eco2 = 0
 {{var_name}}_tvoc = 0
 
-# Boot e modo medi├º├úo (baseline simples)
+# Boot e modo medição (baseline simples)
 {{var_name}}_i2c.writeto_mem({{var_name}}_addr, 0xF4, b'\x00')
 time.sleep_ms(100)
 {{var_name}}_i2c.writeto_mem({{var_name}}_addr, 0x01, b'\x10')
@@ -237,7 +237,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
         id: 'imu_mpu9250',
         name: 'IMU MPU9250/BMX055',
         category: HardwareCategory.SENSOR,
-        description: 'Aceler├┤metro e girosc├│pio I2C (SDA21/SCL22)',
+        description: 'Acelerômetro e giroscópio I2C (SDA21/SCL22)',
         icon: 'Crosshair',
 
         inputs: [],
@@ -253,7 +253,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
         parameters: [
             { id: 'sda', label: 'SDA', type: 'number', default: 21, min: 0, max: 39 },
             { id: 'scl', label: 'SCL', type: 'number', default: 22, min: 0, max: 39 },
-            { id: 'address', label: 'Endere├ºo I2C', type: 'string', default: '0x68' },
+            { id: 'address', label: 'Endereço I2C', type: 'string', default: '0x68' },
             { id: 'interval', label: 'Intervalo (ms)', type: 'number', default: 100, min: 20, max: 2000 }
         ],
 
@@ -298,7 +298,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
         id: 'ldr_sensor',
         name: 'LDR',
         category: HardwareCategory.SENSOR,
-        description: 'Leitura anal├│gica do LDR (GPIO34)',
+        description: 'Leitura analógica do LDR (GPIO34)',
         icon: 'Sun',
 
         inputs: [],
@@ -329,11 +329,11 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
         id: 'vbat_sensor',
         name: 'VBAT',
         category: HardwareCategory.SENSOR,
-        description: 'Mede tens├úo da bateria (GPIO35 com divisor)',
+        description: 'Mede tensão da bateria (GPIO35 com divisor)',
         icon: 'Battery',
 
         inputs: [],
-        outputs: [{ id: 'voltage', label: 'Tens├úo (V)', type: DataType.NUMBER }],
+        outputs: [{ id: 'voltage', label: 'Tensão (V)', type: DataType.NUMBER }],
 
         parameters: [
             { id: 'pin', label: 'Pino ADC', type: 'number', default: 35, min: 32, max: 39 },
@@ -370,7 +370,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
         inputs: [
             { id: 'temperature', label: 'Temperatura', type: DataType.NUMBER },
             { id: 'humidity', label: 'Umidade', type: DataType.NUMBER },
-            { id: 'value', label: 'Valor Gen├®rico', type: DataType.NUMBER },
+            { id: 'value', label: 'Valor Genérico', type: DataType.NUMBER },
             { id: 'state', label: 'Estado Direto', type: DataType.BOOLEAN }
         ],
         outputs: [],
@@ -418,7 +418,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
             { id: 'blink_enabled', label: 'Piscar automaticamente', type: 'boolean', default: false },
             { id: 'blink_interval', label: 'Intervalo de Pisca (ms)', type: 'number', default: 1000, min: 100, max: 10000 },
             { id: 'blink_duty', label: 'Duty (%)', type: 'number', default: 50, min: 1, max: 99 },
-            { id: 'blink_count_enabled', label: 'Limitar nÚmero de piscadas', type: 'boolean', default: false },
+            { id: 'blink_count_enabled', label: 'Limitar número de piscadas', type: 'boolean', default: false },
             { id: 'blink_count', label: 'Quantidade de piscadas', type: 'number', default: 3, min: 1, max: 100 }
         ],
 
@@ -428,7 +428,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
                 parameters: [
                     {
                         id: 'temp_operator',
-                        label: 'Condi├º├úo de Temperatura',
+                        label: 'Condição de Temperatura',
                         type: 'select',
                         default: '>',
                         options: [
@@ -441,7 +441,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
                     },
                     {
                         id: 'temp_threshold',
-                        label: 'Limite de Temperatura (┬░C)',
+                        label: 'Limite de Temperatura (°C)',
                         type: 'number',
                         default: 30,
                         min: -50,
@@ -454,7 +454,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
                 parameters: [
                     {
                         id: 'hum_operator',
-                        label: 'Condi├º├úo de Umidade',
+                        label: 'Condição de Umidade',
                         type: 'select',
                         default: '>',
                         options: [
@@ -480,7 +480,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
                 parameters: [
                     {
                         id: 'value_operator',
-                        label: 'Condi├º├úo do Valor',
+                        label: 'Condição do Valor',
                         type: 'select',
                         default: '>',
                         options: [
@@ -655,7 +655,7 @@ else:
 
         inputs: [
             { id: 'state', label: 'Ativar', type: DataType.BOOLEAN },
-            { id: 'value', label: 'Valor Gen├®rico', type: DataType.NUMBER }
+            { id: 'value', label: 'Valor Genérico', type: DataType.NUMBER }
         ],
         outputs: [],
 
@@ -684,10 +684,10 @@ else:
                     { value: 'very_low', label: 'Muito grave' }
                 ]
             },
-            { id: 'duration', label: 'Dura├º├úo (ms)', type: 'number', default: 200, min: 50, max: 2000 },
+            { id: 'duration', label: 'Duração (ms)', type: 'number', default: 200, min: 50, max: 2000 },
             { id: 'repeat_enabled', label: 'Repetir automaticamente', type: 'boolean', default: false },
-            { id: 'repeat_interval', label: 'Intervalo de repeti├º├úo (ms)', type: 'number', default: 2000, min: 100, max: 20000 },
-            { id: 'repeat_count_enabled', label: 'Limitar n├║mero de toques', type: 'boolean', default: false },
+            { id: 'repeat_interval', label: 'Intervalo de repetição (ms)', type: 'number', default: 2000, min: 100, max: 20000 },
+            { id: 'repeat_count_enabled', label: 'Limitar número de toques', type: 'boolean', default: false },
             { id: 'repeat_count', label: 'Quantidade de toques', type: 'number', default: 3, min: 1, max: 100 }
         ],
 
@@ -737,7 +737,7 @@ elif {{tone}} == "low":
 elif {{tone}} == "very_low":
     tone_freq = 500
 
-# Se n├úo h├í entradas e repeti├º├úo autom├ítica est├í habilitada, gerar beep por intervalo
+# Se não há entradas e repetição automática está habilitada, gerar beep por intervalo
 {{#if repeat_enabled}}
 if not has_input:
     now = time.ticks_ms()
@@ -769,7 +769,7 @@ if should_beep:
         id: 'sd_logger',
         name: 'Logger SD',
         category: HardwareCategory.COMMUNICATION,
-        description: 'Registra dados em cart├úo SD (CS15)',
+        description: 'Registra dados em cartão SD (CS15)',
         icon: 'HardDrive',
 
         inputs: [
@@ -815,19 +815,19 @@ elif time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
         id: 'servo_motor',
         name: 'Servo Motor',
         category: HardwareCategory.ACTUATOR,
-        description: 'Controla um servo motor (0-180 graus) com condi├º├Áes',
+        description: 'Controla um servo motor (0-180 graus) com condições',
         icon: 'Gauge',
 
         inputs: [
             { id: 'temperature', label: 'Temperatura', type: DataType.NUMBER },
-            { id: 'value', label: 'Valor Gen├®rico', type: DataType.NUMBER },
-            { id: 'angle', label: '├éngulo Direto', type: DataType.NUMBER }
+            { id: 'value', label: 'Valor Genérico', type: DataType.NUMBER },
+            { id: 'angle', label: 'Ângulo Direto', type: DataType.NUMBER }
         ],
         outputs: [],
 
         parameters: [
             { id: 'pin', label: 'Pino GPIO', type: 'number', default: 5, min: 0, max: 39 },
-            { id: 'default_angle', label: '├éngulo Inicial', type: 'number', default: 90, min: 0, max: 180 }
+            { id: 'default_angle', label: 'Ângulo Inicial', type: 'number', default: 90, min: 0, max: 180 }
         ],
 
         dynamicParameters: [
@@ -836,7 +836,7 @@ elif time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
                 parameters: [
                     {
                         id: 'servo_temp_operator',
-                        label: 'Condi├º├úo de Temperatura',
+                        label: 'Condição de Temperatura',
                         type: 'select',
                         default: '>',
                         options: [
@@ -848,7 +848,7 @@ elif time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
                     },
                     {
                         id: 'servo_temp_threshold',
-                        label: 'Temperatura Limite (┬░C)',
+                        label: 'Temperatura Limite (°C)',
                         type: 'number',
                         default: 25,
                         min: -50,
@@ -856,7 +856,7 @@ elif time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
                     },
                     {
                         id: 'servo_temp_angle',
-                        label: '├éngulo quando condi├º├úo ativa',
+                        label: 'Ângulo quando condição ativa',
                         type: 'number',
                         default: 180,
                         min: 0,
@@ -869,7 +869,7 @@ elif time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
                 parameters: [
                     {
                         id: 'servo_value_min',
-                        label: 'Valor M├¡nimo de Entrada',
+                        label: 'Valor Mínimo de Entrada',
                         type: 'number',
                         default: 0,
                         min: -1000,
@@ -877,7 +877,7 @@ elif time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
                     },
                     {
                         id: 'servo_value_max',
-                        label: 'Valor M├íximo de Entrada',
+                        label: 'Valor Máximo de Entrada',
                         type: 'number',
                         default: 100,
                         min: -1000,
@@ -892,7 +892,7 @@ elif time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
             setupCode: `{{var_name}}_servo = PWM(Pin({{pin}}), freq=50)
 {{var_name}}_angle = {{default_angle}}`,
             loopCode: `
-# Define ├óngulo baseado nas condi├º├Áes
+# Define ângulo baseado nas condições
 target_angle = {{default_angle}}
 
 {{#if input_temperature}}
@@ -901,7 +901,7 @@ if {{input_temperature}} {{servo_temp_operator}} {{servo_temp_threshold}}:
 {{/if}}
 
 {{#if input_value}}
-# Mapeia valor de entrada para ├óngulo 0-180
+# Mapeia valor de entrada para ângulo 0-180
 mapped_value = max({{servo_value_min}}, min({{input_value}}, {{servo_value_max}}))
 target_angle = int((mapped_value - {{servo_value_min}}) / ({{servo_value_max}} - {{servo_value_min}}) * 180)
 {{/if}}
@@ -910,7 +910,7 @@ target_angle = int((mapped_value - {{servo_value_min}}) / ({{servo_value_max}} -
 target_angle = int(max(0, min({{input_angle}}, 180)))
 {{/if}}
 
-# Converte ├óngulo para duty cycle (40-115 para 0-180 graus)
+# Converte ângulo para duty cycle (40-115 para 0-180 graus)
 {{var_name}}_duty = int(40 + (target_angle / 180) * 75)
 {{var_name}}_servo.duty({{var_name}}_duty)
 {{var_name}}_angle = target_angle
@@ -941,7 +941,7 @@ target_angle = int(max(0, min({{input_angle}}, 180)))
         }
     },
 
-    // ==================== L├ôGICA ====================
+    // ==================== LÓGICA ====================
 
     comparator: {
         id: 'comparator',
@@ -1078,7 +1078,7 @@ else:
         id: 'delay_trigger',
         name: 'Aguardar X segundos',
         category: HardwareCategory.LOGIC,
-        description: 'Ativa ap├│s um atraso inicial, sem depender de sensores',
+        description: 'Ativa após um atraso inicial, sem depender de sensores',
         icon: 'Clock3',
 
         inputs: [
@@ -1119,7 +1119,7 @@ else:
         id: 'sequence_timer',
         name: 'Sequenciador',
         category: HardwareCategory.LOGIC,
-        description: 'Gera uma sequ├¬ncia de passos temporizados para acionar atuadores',
+        description: 'Gera uma sequência de passos temporizados para acionar atuadores',
         icon: 'Timer',
 
         inputs: [
@@ -1133,13 +1133,13 @@ else:
         parameters: [
             { id: 'start_delay', label: 'Aguardar antes de iniciar (ms)', type: 'number', default: 0, min: 0, max: 600000 },
             { id: 'step1_state', label: 'Passo 1 ligado?', type: 'boolean', default: true },
-            { id: 'step1_duration', label: 'Dura├º├úo passo 1 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
+            { id: 'step1_duration', label: 'Duração passo 1 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
             { id: 'step2_state', label: 'Passo 2 ligado?', type: 'boolean', default: false },
-            { id: 'step2_duration', label: 'Dura├º├úo passo 2 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
+            { id: 'step2_duration', label: 'Duração passo 2 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
             { id: 'step3_state', label: 'Passo 3 ligado?', type: 'boolean', default: true },
-            { id: 'step3_duration', label: 'Dura├º├úo passo 3 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
+            { id: 'step3_duration', label: 'Duração passo 3 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
             { id: 'step4_state', label: 'Passo 4 ligado?', type: 'boolean', default: false },
-            { id: 'step4_duration', label: 'Dura├º├úo passo 4 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
+            { id: 'step4_duration', label: 'Duração passo 4 (ms)', type: 'number', default: 1000, min: 100, max: 60000 },
             { id: 'repeat_cycle', label: 'Repetir sempre', type: 'boolean', default: false }
         ],
 
@@ -1161,7 +1161,7 @@ else:
 {{var_name}}_started = False
 `.trim(),
             loopCode: `
-# Sequenciador simples de at├® quatro passos com gatilho opcional de in├¡cio
+# Sequenciador simples de até quatro passos com gatilho opcional de início
 start_active = True
 {{#if input_start}}
 start_active = bool({{input_start}})
@@ -1180,7 +1180,7 @@ elif not start_active:
 else:
     now = time.ticks_ms()
 
-    # Aguarda atraso inicial apenas uma vez ap├│s gatilho
+    # Aguarda atraso inicial apenas uma vez após gatilho
     if not {{var_name}}_started:
         if {{var_name}}_start_delay == 0 or time.ticks_diff(now, {{var_name}}_last) >= {{var_name}}_start_delay:
             {{var_name}}_started = True
@@ -1216,7 +1216,7 @@ else:
         id: 'threshold',
         name: 'Limiar',
         category: HardwareCategory.LOGIC,
-        description: 'Ativa sa├¡da quando entrada ultrapassa limiar',
+        description: 'Ativa saída quando entrada ultrapassa limiar',
         icon: 'Gauge',
 
         inputs: [
@@ -1249,21 +1249,21 @@ else:
 };
 
 /**
- * Obt├®m um driver pelo ID
+ * Obtém um driver pelo ID
  */
 export function getDriver(driverId: string): HardwareDriver | undefined {
     return DRIVER_REGISTRY[driverId];
 }
 
 /**
- * Obt├®m todos os drivers de uma categoria
+ * Obtém todos os drivers de uma categoria
  */
 export function getDriversByCategory(category: HardwareCategory): HardwareDriver[] {
     return Object.values(DRIVER_REGISTRY).filter(d => d.category === category);
 }
 
 /**
- * Lista todos os drivers dispon├¡veis
+ * Lista todos os drivers disponíveis
  */
 export function getAllDrivers(): HardwareDriver[] {
     return Object.values(DRIVER_REGISTRY);
