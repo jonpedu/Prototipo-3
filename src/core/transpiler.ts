@@ -4,8 +4,9 @@
  * Implementa algoritmo de Topological Sort (Kahn's Algorithm)
  */
 
-import { OrbitaNode, OrbitaEdge, ITranspiler, TranspileResult } from './types';
+import { OrbitaNode, OrbitaEdge, ITranspiler, TranspileResult, HardwareProfileType, DataType } from './types';
 import { getDriver } from './drivers';
+import { getHardwareProfile, getPinMapping } from '../config/hardware-profiles';
 
 export class OrbitaTranspiler implements ITranspiler {
 
@@ -33,13 +34,31 @@ export class OrbitaTranspiler implements ITranspiler {
             }
         }
 
-        // Valida conexões
+        // Valida conexões e handles
         for (const edge of edges) {
             const sourceNode = nodes.find(n => n.id === edge.source);
             const targetNode = nodes.find(n => n.id === edge.target);
 
             if (!sourceNode || !targetNode) {
                 errors.push(`Conexão inválida: ${edge.source} -> ${edge.target}`);
+                continue;
+            }
+
+            const sourceDriver = getDriver(sourceNode.data.driverId);
+            const targetDriver = getDriver(targetNode.data.driverId);
+
+            if (sourceDriver) {
+                const hasHandle = sourceDriver.outputs.some(o => o.id === edge.sourceHandle);
+                if (!hasHandle) {
+                    errors.push(`Saída "${edge.sourceHandle}" inexistente em "${sourceNode.data.label}" (${sourceDriver.name}).`);
+                }
+            }
+
+            if (targetDriver) {
+                const hasHandle = targetDriver.inputs.some(i => i.id === edge.targetHandle);
+                if (!hasHandle) {
+                    errors.push(`Entrada "${edge.targetHandle}" inexistente em "${targetNode.data.label}" (${targetDriver.name}).`);
+                }
             }
         }
 
@@ -49,7 +68,7 @@ export class OrbitaTranspiler implements ITranspiler {
     /**
      * Transpila o grafo para código MicroPython
      */
-    transpile(nodes: OrbitaNode[], edges: OrbitaEdge[]): TranspileResult {
+    transpile(nodes: OrbitaNode[], edges: OrbitaEdge[], profile: HardwareProfileType): TranspileResult {
         const validation = this.validate(nodes, edges);
         if (!validation.valid) {
             return {
@@ -67,15 +86,17 @@ export class OrbitaTranspiler implements ITranspiler {
             // 2. Geração de nomes de variáveis semânticos
             const variableMap = this.generateVariableNames(sortedNodes);
 
+            const warnings: string[] = [];
+
             // 3. Construção do código MicroPython
-            const code = this.buildMicroPythonCode(sortedNodes, edges, variableMap);
+            const code = this.buildMicroPythonCode(sortedNodes, edges, variableMap, profile, warnings);
 
             return {
                 success: true,
                 code,
                 nodeCount: nodes.length,
                 variableMap,
-                warnings: []
+                warnings
             };
         } catch (error) {
             return {
@@ -192,6 +213,28 @@ export class OrbitaTranspiler implements ITranspiler {
         return variableMap;
     }
 
+    private toPythonLiteral(value: any): string {
+        if (value === undefined || value === null) return 'None';
+        if (typeof value === 'boolean') return value ? 'True' : 'False';
+        if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '0';
+        if (typeof value === 'string') return JSON.stringify(value);
+        return JSON.stringify(value);
+    }
+
+    private defaultLiteralForType(type: DataType): string {
+        switch (type) {
+            case DataType.BOOLEAN:
+                return 'False';
+            case DataType.NUMBER:
+                return '0';
+            case DataType.STRING:
+                return '""';
+            case DataType.ANY:
+            default:
+                return 'None';
+        }
+    }
+
     /**
      * Aplica regras lógicas a um nó atuador
      * Gera código condicional baseado nas regras definidas
@@ -224,7 +267,7 @@ export class OrbitaTranspiler implements ITranspiler {
                 : sourceVarName;
 
             // Gera a condição
-            const condition = `${inputVarName} ${rule.condition} ${rule.value}`;
+            const condition = `${inputVarName} ${rule.condition} ${this.toPythonLiteral(rule.value)}`;
             logicConditions.push(condition);
         }
 
@@ -233,7 +276,7 @@ export class OrbitaTranspiler implements ITranspiler {
         // Substitui o código do loop com lógica condicional
         // Envolve o código original em blocos if/else baseados nas regras
         const combinedCondition = logicConditions.join(' or ');
-        
+
         const wrappedCode = `
 # Lógica condicional baseada em regras
 if ${combinedCondition}:
@@ -249,18 +292,53 @@ if ${combinedCondition}:
     private buildMicroPythonCode(
         sortedNodes: OrbitaNode[],
         edges: OrbitaEdge[],
-        variableMap: Record<string, string>
+        variableMap: Record<string, string>,
+        profile: HardwareProfileType,
+        warnings: string[]
     ): string {
-        const imports = new Set<string>();
+        const imports = new Set<string>(['import time']);
         const setupLines: string[] = [];
         const loopLines: string[] = [];
+        const profileInfo = getHardwareProfile(profile);
 
         sortedNodes.forEach(node => {
             const driver = getDriver(node.data.driverId);
             if (!driver) return;
 
             const varName = variableMap[node.id];
-            const params = node.data.parameters;
+            const params = { ...node.data.parameters };
+
+            // Ajusta parametros com base nas acoes anexadas ao atuador
+            this.applyActionsToParams(node, params);
+
+            // Valida tipos e conexões
+            driver.inputs.forEach(input => {
+                const incomingEdge = edges.find(e => e.target === node.id && e.targetHandle === input.id);
+                if (!incomingEdge) {
+                    warnings.push(`Entrada "${input.label}" do componente "${node.data.label}" não está conectada.`);
+                } else {
+                    const sourceNode = sortedNodes.find(n => n.id === incomingEdge.source);
+                    const sourceDriver = sourceNode ? getDriver(sourceNode.data.driverId) : undefined;
+                    const sourceOutput = sourceDriver?.outputs.find(o => o.id === incomingEdge.sourceHandle);
+                    if (sourceOutput && input.type !== sourceOutput.type && input.type !== DataType.ANY && sourceOutput.type !== DataType.ANY) {
+                        warnings.push(`Tipo incompatível: "${sourceOutput.label}" (${sourceOutput.type}) -> "${input.label}" (${input.type}) em "${node.data.label}".`);
+                    }
+                }
+            });
+
+            // Aplica mapeamento de pinos do perfil (travados) quando existir
+            profileInfo.pinMappings
+                .filter(m => m.driverId === driver.id)
+                .forEach(mapping => {
+                    const targetParam = mapping.parameterId || 'pin';
+                    if (targetParam in params) {
+                        const currentVal = params[targetParam];
+                        if (!profileInfo.allowCustomPins && currentVal !== undefined && currentVal !== mapping.pin) {
+                            throw new Error(`Perfil ${profileInfo.name} trava ${targetParam}=${mapping.pin} para ${driver.name}, mas foi configurado ${currentVal}.`);
+                        }
+                        params[targetParam] = mapping.pin;
+                    }
+                });
 
             // Coleta imports
             driver.code.imports.forEach(imp => imports.add(imp));
@@ -269,7 +347,7 @@ if ${combinedCondition}:
             let setupCode = driver.code.setupCode
                 .replace(/\{\{var_name\}\}/g, varName);
 
-            // Substitui parâmetros
+            // Substitui parâmetros (incluindo estáticos e dinâmicos)
             Object.keys(params).forEach(key => {
                 const value = params[key];
                 const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
@@ -282,7 +360,8 @@ if ${combinedCondition}:
             let loopCode = driver.code.loopCode
                 .replace(/\{\{var_name\}\}/g, varName);
 
-            // Substitui parâmetros (incluindo dinâmicos)
+            // Substitui TODOS os parâmetros (estáticos e dinâmicos)
+            // Isso inclui temp_operator, temp_threshold, hum_operator, etc.
             Object.keys(params).forEach(key => {
                 const value = params[key];
                 const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
@@ -321,6 +400,14 @@ if ${combinedCondition}:
                 return connectedInputs.has(inputId) ? content.trim() : '';
             });
 
+            // Preenche placeholders restantes de entradas desconectadas com literais seguros
+            driver.inputs.forEach(input => {
+                if (!connectedInputs.has(input.id)) {
+                    const fallback = this.defaultLiteralForType(input.type);
+                    loopCode = loopCode.replace(new RegExp(`\\{\\{input_${input.id}\\}\\}`, 'g'), fallback);
+                }
+            });
+
             // Remove linhas vazias múltiplas
             loopCode = loopCode.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
 
@@ -340,7 +427,26 @@ if ${combinedCondition}:
 # ================================================
 `;
 
-        const importsSection = Array.from(imports).join('\n');
+        // Dedup avançado: agrupa imports "from X import ..."
+        const fromImports = new Map<string, Set<string>>();
+        const plainImports: string[] = [];
+
+        imports.forEach(imp => {
+            const match = imp.match(/^from\s+([^\s]+)\s+import\s+(.+)$/);
+            if (match) {
+                const mod = match[1];
+                const names = match[2].split(',').map(s => s.trim());
+                if (!fromImports.has(mod)) fromImports.set(mod, new Set());
+                names.forEach(n => fromImports.get(mod)!.add(n));
+            } else {
+                plainImports.push(imp);
+            }
+        });
+
+        const mergedFromImports = Array.from(fromImports.entries())
+            .map(([mod, names]) => `from ${mod} import ${Array.from(names).sort().join(', ')}`);
+
+        const importsSection = [...plainImports.sort(), ...mergedFromImports.sort()].join('\n');
         const setupSection = setupLines.length > 0
             ? `\n# ===== INICIALIZAÇÃO =====\n${setupLines.join('\n')}\n`
             : '';
@@ -353,6 +459,111 @@ ${loopLines.map(line => '    ' + line.split('\n').join('\n    ')).join('\n')}
 `;
 
         return header + importsSection + setupSection + loopSection;
+    }
+
+    /**
+     * Ajusta parametros de atuadores baseados nas acoes anexadas
+     * para que o codigo gerado reflita os comportamentos escolhidos.
+     */
+    private applyActionsToParams(node: OrbitaNode, params: Record<string, any>) {
+        const actions = node.data.actions || [];
+
+        if (node.data.driverId === 'led_output') {
+            // Defaults neutros
+            params.blink_enabled = false;
+            params.blink_count_enabled = false;
+            params.action_white_mode = 'none';
+            params.action_white_state = false;
+            params.value_operator = params.value_operator || '>';
+            params.value_threshold = params.value_threshold ?? 0;
+
+            const colorMap: Record<string, number> = {
+                red: 1,
+                green: 2,
+                blue: 3,
+                white: 4,
+                magenta: 5,
+                cyan: 4,
+                yellow: 4,
+                off: 0
+            };
+
+            actions.forEach(action => {
+                switch (action.type) {
+                    case 'led_blink': {
+                        params.led_type = 'white';
+                        params.blink_enabled = true;
+                        params.blink_interval = action.config.interval ?? 500;
+                        params.blink_duty = action.config.duty ?? 50;
+                        params.blink_count_enabled = action.config.count_enabled ?? false;
+                        params.blink_count = action.config.count ?? 5;
+                        break;
+                    }
+                    case 'led_fixed_white': {
+                        params.led_type = 'white';
+                        params.action_white_mode = 'fixed';
+                        params.action_white_state = action.config.state === 'on';
+                        params.blink_enabled = false;
+                        params.blink_count_enabled = false;
+                        break;
+                    }
+                    case 'led_fixed_rgb': {
+                        params.led_type = 'rgb';
+                        const color = action.config.preset as string;
+                        params.preset_color = colorMap[color] ?? 0;
+                        break;
+                    }
+                    case 'led_alert': {
+                        params.value_operator = action.config.operator ?? '>';
+                        params.value_threshold = action.config.threshold ?? 30;
+                        params.led_type = params.led_type || 'white';
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            });
+        }
+
+        if (node.data.driverId === 'buzzer') {
+            // Defaults neutros
+            params.repeat_enabled = false;
+            params.repeat_count_enabled = false;
+
+            actions.forEach(action => {
+                switch (action.type) {
+                    case 'buzzer_beep': {
+                        params.tone = action.config.tone ?? 'normal';
+                        params.duration = action.config.duration ?? 300;
+                        // Usa mecanismo de repeticao para tocar uma vez quando sem entradas
+                        params.repeat_enabled = true;
+                        params.repeat_interval = 1000;
+                        params.repeat_count_enabled = true;
+                        params.repeat_count = 1;
+                        break;
+                    }
+                    case 'buzzer_pattern': {
+                        params.tone = action.config.tone ?? 'high';
+                        params.duration = action.config.duration ?? 200;
+                        params.repeat_enabled = true;
+                        params.repeat_interval = action.config.interval ?? 400;
+                        params.repeat_count_enabled = true;
+                        params.repeat_count = action.config.count ?? 3;
+                        break;
+                    }
+                    case 'buzzer_alert': {
+                        params.value_operator = action.config.operator ?? '>';
+                        params.value_threshold = action.config.threshold ?? 50;
+                        params.repeat_enabled = true;
+                        params.repeat_interval = action.config.cooldown ?? 1000;
+                        params.repeat_count_enabled = false;
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            });
+        }
     }
 }
 

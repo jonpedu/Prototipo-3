@@ -17,6 +17,7 @@ import '@xyflow/react/dist/style.css';
 
 import { useOrbitaStore } from '../../store/useStore';
 import { getDriver } from '../../core/drivers';
+import { getHardwareProfile } from '../../config/hardware-profiles';
 import OrbitaNode from '../nodes/OrbitaNode';
 
 const nodeTypes = {
@@ -35,7 +36,11 @@ const CanvasContent: React.FC = () => {
         addNode,
         selectNode,
         deleteNode,
-        deleteEdge
+        deleteEdge,
+        hardwareProfile,
+        selectedNode,
+        addActionToNode,
+        addTelemetryMessage
     } = useOrbitaStore();
 
     // Handler para deletar nós e edges com tecla Delete/Backspace
@@ -73,11 +78,29 @@ const CanvasContent: React.FC = () => {
         (event: React.DragEvent) => {
             event.preventDefault();
 
+            const actionType = event.dataTransfer.getData('application/orbita-action');
+            if (actionType) {
+                if (selectedNode) {
+                    addActionToNode(selectedNode.id, actionType);
+                } else {
+                    addTelemetryMessage({
+                        timestamp: Date.now(),
+                        type: 'log',
+                        content: 'Arraste um componente antes de anexar acoes.'
+                    });
+                }
+                return;
+            }
+
             const driverId = event.dataTransfer.getData('application/reactflow');
             if (!driverId) return;
 
             const driver = getDriver(driverId);
             if (!driver) return;
+
+            // Bloqueia drop de drivers não permitidos no perfil atual
+            const profile = getHardwareProfile(hardwareProfile);
+            if (profile.allowedDrivers && !profile.allowedDrivers.includes(driver.id)) return;
 
             const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
             if (!reactFlowBounds) return;
@@ -105,7 +128,7 @@ const CanvasContent: React.FC = () => {
 
             addNode(newNode);
         },
-        [addNode]
+        [addNode, addActionToNode, addTelemetryMessage, hardwareProfile, selectedNode]
     );
 
     const onNodeClick = useCallback(

@@ -19,8 +19,10 @@ import {
     Save,
     FolderOpen,
     FileText,
-    Cpu
+    Cpu,
+    ListChecks
 } from 'lucide-react';
+import { missionPresets } from '../../config/mission-presets';
 
 export const Toolbar: React.FC = () => {
     const {
@@ -35,7 +37,11 @@ export const Toolbar: React.FC = () => {
         saveMission,
         loadMission,
         clearCanvas,
-        setHardwareProfile
+        setHardwareProfile,
+        setNodes,
+        setEdges,
+        selectNode,
+        runSelfTest
     } = useOrbitaStore();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +51,24 @@ export const Toolbar: React.FC = () => {
 
     const handleLoadMission = () => {
         fileInputRef.current?.click();
+    };
+
+    const handlePresetChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const presetId = event.target.value;
+        if (!presetId) return;
+
+        const preset = missionPresets.find(p => p.id === presetId);
+        if (!preset) return;
+
+        // Clona nodes/edges para evitar mutações externas
+        const clonedNodes = preset.nodes.map(node => ({ ...node, data: { ...node.data } }));
+        const clonedEdges = preset.edges.map(edge => ({ ...edge }));
+
+        setNodes(clonedNodes);
+        setEdges(clonedEdges);
+        selectNode(null);
+
+        event.target.value = '';
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,7 +88,7 @@ export const Toolbar: React.FC = () => {
 
     const handleClearCanvas = () => {
         if (nodes.length === 0) return;
-        
+
         if (confirm('Tem certeza que deseja limpar o canvas? Todas as alterações não salvas serão perdidas.')) {
             clearCanvas();
         }
@@ -88,27 +112,47 @@ export const Toolbar: React.FC = () => {
     };
 
     return (
-        <div className="h-16 bg-gray-950 border-b border-gray-800 flex items-center justify-between px-6 shadow-xl">
-            {/* Logo e Status */}
-            <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                    <Satellite className="w-8 h-8 text-blue-500" />
+        <div className="h-16 bg-gray-950 border-b border-gray-800 flex items-center justify-between px-4 lg:px-6 shadow-xl gap-4">
+            {/* Logo + Perfil + Missões */}
+            <div className="flex items-center gap-3 lg:gap-4">
+                <div className="flex items-center gap-2 pr-3 border-r border-gray-800">
+                    <Satellite className="w-7 h-7 text-blue-500" />
                     <h1 className="text-xl font-bold text-gray-100">ORBITA</h1>
                 </div>
 
-                <div className="h-8 w-px bg-gray-700" />
+                <div className="hidden md:flex items-center gap-2">
+                    <ListChecks className="w-4 h-4 text-gray-400" />
+                    <select
+                        defaultValue=""
+                        onChange={handlePresetChange}
+                        className="px-2 py-1 rounded bg-gray-900 border border-gray-700 text-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="" disabled>Missões rápidas</option>
+                        {missionPresets.map(preset => (
+                            <option key={preset.id} value={preset.id}>
+                                {preset.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gray-900 border border-gray-700 text-xs text-gray-200">
+                    <span
+                        className={`h-2 w-2 rounded-full ${isMockMode ? 'bg-amber-400 animate-pulse' : isConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}
+                    />
+                    <span className="uppercase tracking-wide font-semibold">
+                        {isMockMode ? 'Simulação' : isConnected ? 'Dispositivo' : 'Offline'}
+                    </span>
+                </div>
 
                 {statusBadge()}
-
-                {isMockMode && (
-                    <Badge variant="warning">MODO MOCK</Badge>
-                )}
+                {isMockMode && <Badge variant="warning">MODO MOCK</Badge>}
             </div>
 
-            {/* Controles */}
-            <div className="flex items-center gap-3">
-                {/* Hardware Profile Selector */}
-                <div className="flex items-center gap-2">
+            {/* Controles principais */}
+            <div className="flex items-center gap-2 lg:gap-3">
+                {/* Profile */}
+                <div className="flex items-center gap-2 pr-3 border-r border-gray-800">
                     <Cpu className="w-4 h-4 text-gray-400" />
                     <select
                         value={hardwareProfile}
@@ -123,92 +167,88 @@ export const Toolbar: React.FC = () => {
                     </select>
                 </div>
 
-                <div className="h-8 w-px bg-gray-700" />
+                {/* File ops */}
+                <div className="flex items-center gap-1 pr-3 border-r border-gray-800">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClearCanvas}
+                        disabled={nodes.length === 0}
+                        title="Nova Missão"
+                    >
+                        <FileText className="w-4 h-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={saveMission}
+                        disabled={nodes.length === 0}
+                        title="Salvar Missão"
+                    >
+                        <Save className="w-4 h-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleLoadMission}
+                        title="Carregar Missão"
+                    >
+                        <FolderOpen className="w-4 h-4" />
+                    </Button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".orbita,.json"
+                        onChange={handleFileChange}
+                        style={{ display: 'none' }}
+                    />
+                </div>
 
-                {/* File Operations */}
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleClearCanvas}
-                    disabled={nodes.length === 0}
-                    title="Nova Missão"
-                >
-                    <FileText className="w-4 h-4" />
-                </Button>
-
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={saveMission}
-                    disabled={nodes.length === 0}
-                    title="Salvar Missão"
-                >
-                    <Save className="w-4 h-4" />
-                </Button>
-
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleLoadMission}
-                    title="Carregar Missão"
-                >
-                    <FolderOpen className="w-4 h-4" />
-                </Button>
-
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".orbita,.json"
-                    onChange={handleFileChange}
-                    style={{ display: 'none' }}
-                />
-
-                <div className="h-8 w-px bg-gray-700" />
-
-                <span className="text-sm text-gray-400">
+                <span className="hidden md:block text-sm text-gray-400 pr-3 border-r border-gray-800">
                     {nodes.length} componente{nodes.length !== 1 ? 's' : ''}
                 </span>
 
-                <div className="h-8 w-px bg-gray-700" />
+                {/* Conexão */}
+                <div className="flex items-center gap-2 pr-3 border-r border-gray-800">
+                    {!isConnected ? (
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={connectSerial}
+                            disabled={false}
+                        >
+                            <Wifi className="w-4 h-4" />
+                            Conectar
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={disconnectSerial}
+                        >
+                            <WifiOff className="w-4 h-4" />
+                            Desconectar
+                        </Button>
+                    )}
 
-                {!isConnected ? (
                     <Button
                         variant="primary"
                         size="sm"
-                        onClick={connectSerial}
-                        disabled={false}
+                        onClick={uploadCode}
+                        disabled={!isConnected || nodes.length === 0 || serialStatus === SerialStatus.UPLOADING}
                     >
-                        <Wifi className="w-4 h-4" />
-                        Conectar
+                        {isRunning ? <Play className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                        {isRunning ? 'Reiniciar' : 'Upload'}
                     </Button>
-                ) : (
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={disconnectSerial}
-                    >
-                        <WifiOff className="w-4 h-4" />
-                        Desconectar
-                    </Button>
-                )}
-
-                <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={uploadCode}
-                    disabled={!isConnected || nodes.length === 0 || serialStatus === SerialStatus.UPLOADING}
-                >
-                    {isRunning ? <Play className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
-                    {isRunning ? 'Reiniciar' : 'Upload'}
-                </Button>
+                </div>
 
                 <Button
                     variant="ghost"
                     size="sm"
                     onClick={clearTelemetry}
+                    title="Limpar console"
                 >
                     <Trash2 className="w-4 h-4" />
-                    Limpar Console
                 </Button>
             </div>
         </div>

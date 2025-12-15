@@ -3,28 +3,60 @@
  * Console de telemetria na parte inferior da tela
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useOrbitaStore } from '../../store/useStore';
+import { Minus } from 'lucide-react';
 
-export const Console: React.FC = () => {
-    const { telemetryMessages, isConsoleOpen } = useOrbitaStore();
+export const Console: React.FC<{ onMinimize?: () => void; hideHeaderMinimize?: boolean }> = ({ onMinimize, hideHeaderMinimize }) => {
+    const { telemetryMessages, isConsoleOpen, clearTelemetry } = useOrbitaStore();
     const consoleEndRef = useRef<HTMLDivElement>(null);
+    const [autoScroll, setAutoScroll] = useState(() => localStorage.getItem('console.autoScroll') !== 'false');
 
     // Auto-scroll para a última mensagem
     useEffect(() => {
-        consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [telemetryMessages]);
+        if (autoScroll) {
+            consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [telemetryMessages, autoScroll]);
+
+    useEffect(() => {
+        localStorage.setItem('console.autoScroll', String(autoScroll));
+    }, [autoScroll]);
 
     if (!isConsoleOpen) return null;
 
     return (
-        <div className="h-48 bg-gray-950 border-t border-gray-800 overflow-hidden flex flex-col">
+        <div className="h-full bg-gray-950 overflow-hidden flex flex-col">
             {/* Header */}
             <div className="px-4 py-2 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-200">Console</h3>
-                <span className="text-xs text-gray-500">
-                    {telemetryMessages.length} mensagens
-                </span>
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <span>{telemetryMessages.length} mensagens</span>
+                    <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={autoScroll}
+                            onChange={(e) => setAutoScroll(e.target.checked)}
+                            className="w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                        />
+                        Auto-scroll
+                    </label>
+                    <button
+                        onClick={clearTelemetry}
+                        className="px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:border-gray-600 text-gray-300"
+                    >
+                        Limpar
+                    </button>
+                    {onMinimize && !hideHeaderMinimize && (
+                        <button
+                            onClick={onMinimize}
+                            className="px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:border-gray-600 text-gray-300 flex items-center gap-1"
+                            title="Minimizar"
+                        >
+                            <Minus className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Messages */}
