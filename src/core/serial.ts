@@ -315,34 +315,51 @@ class RealSerialBridge implements ISerialBridge {
     }
 
     async upload(code: string): Promise<void> {
-        if (!this.writer) {
+        if (!this.writer || !this.port) {
             throw new Error('Porta serial não conectada');
+        }
+
+        const encoder = new TextEncoder();
+        const codeBytes = encoder.encode(code);
+        const chunkSize = 256;
+        const chunkDelayMs = 20;
+        const maxBytes = 120_000;
+
+        if (codeBytes.length > maxBytes) {
+            throw new Error(`Payload (${codeBytes.length} bytes) excede o limite seguro (${maxBytes} bytes). Reduza o código ou divida em partes.`);
         }
 
         this.updateStatus(SerialStatus.UPLOADING);
 
         try {
-            // 1. Interrompe execução (Ctrl+C)
+            this.sendTelemetry({ timestamp: Date.now(), type: 'log', content: '>>> Interrompendo execução (Ctrl+C)' });
             await this.sendBytes(new Uint8Array([0x03]));
             await this.delay(100);
 
-            // 2. Entra em Raw REPL mode (Ctrl+A)
+            this.sendTelemetry({ timestamp: Date.now(), type: 'log', content: '>>> Entrando em Raw REPL (Ctrl+A)' });
             await this.sendBytes(new Uint8Array([0x01]));
-            await this.delay(300);
+            await this.delay(200);
 
-            // 3. Envia código em chunks para evitar buffer overflow
-            const encoder = new TextEncoder();
-            const codeBytes = encoder.encode(code);
-            const chunkSize = 256;
+            this.sendTelemetry({ timestamp: Date.now(), type: 'log', content: `>>> Enviando código em chunks de ${chunkSize} bytes (${codeBytes.length} bytes no total)` });
 
             for (let i = 0; i < codeBytes.length; i += chunkSize) {
                 const chunk = codeBytes.slice(i, i + chunkSize);
                 await this.sendBytes(chunk);
-                await this.delay(50); // Pequeno delay entre chunks
+                await this.delay(chunkDelayMs);
+
+                const progress = Math.min(100, Math.floor(((i + chunk.length) / codeBytes.length) * 100));
+                if (progress === 100 || progress % 10 === 0) {
+                    this.sendTelemetry({
+                        timestamp: Date.now(),
+                        type: 'log',
+                        content: `>>> Upload: ${progress}%`
+                    });
+                }
             }
 
-            // 4. Finaliza e executa (Ctrl+D)
+            this.sendTelemetry({ timestamp: Date.now(), type: 'log', content: '>>> Finalizando e executando (Ctrl+D)' });
             await this.sendBytes(new Uint8Array([0x04]));
+            await this.delay(300);
 
             this.updateStatus(SerialStatus.RUNNING);
 
@@ -353,6 +370,8 @@ class RealSerialBridge implements ISerialBridge {
             });
 
         } catch (error) {
+            // Sai do Raw REPL para evitar deixar a placa presa
+            try { await this.sendBytes(new Uint8Array([0x02])); } catch { /* ignore */ }
             this.updateStatus(SerialStatus.ERROR);
             throw new Error(`Falha no upload: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
         }

@@ -34,13 +34,31 @@ export class OrbitaTranspiler implements ITranspiler {
             }
         }
 
-        // Valida conexões
+        // Valida conexões e handles
         for (const edge of edges) {
             const sourceNode = nodes.find(n => n.id === edge.source);
             const targetNode = nodes.find(n => n.id === edge.target);
 
             if (!sourceNode || !targetNode) {
                 errors.push(`Conexão inválida: ${edge.source} -> ${edge.target}`);
+                continue;
+            }
+
+            const sourceDriver = getDriver(sourceNode.data.driverId);
+            const targetDriver = getDriver(targetNode.data.driverId);
+
+            if (sourceDriver) {
+                const hasHandle = sourceDriver.outputs.some(o => o.id === edge.sourceHandle);
+                if (!hasHandle) {
+                    errors.push(`Saída "${edge.sourceHandle}" inexistente em "${sourceNode.data.label}" (${sourceDriver.name}).`);
+                }
+            }
+
+            if (targetDriver) {
+                const hasHandle = targetDriver.inputs.some(i => i.id === edge.targetHandle);
+                if (!hasHandle) {
+                    errors.push(`Entrada "${edge.targetHandle}" inexistente em "${targetNode.data.label}" (${targetDriver.name}).`);
+                }
             }
         }
 
@@ -195,6 +213,28 @@ export class OrbitaTranspiler implements ITranspiler {
         return variableMap;
     }
 
+    private toPythonLiteral(value: any): string {
+        if (value === undefined || value === null) return 'None';
+        if (typeof value === 'boolean') return value ? 'True' : 'False';
+        if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '0';
+        if (typeof value === 'string') return JSON.stringify(value);
+        return JSON.stringify(value);
+    }
+
+    private defaultLiteralForType(type: DataType): string {
+        switch (type) {
+            case DataType.BOOLEAN:
+                return 'False';
+            case DataType.NUMBER:
+                return '0';
+            case DataType.STRING:
+                return '""';
+            case DataType.ANY:
+            default:
+                return 'None';
+        }
+    }
+
     /**
      * Aplica regras lógicas a um nó atuador
      * Gera código condicional baseado nas regras definidas
@@ -227,7 +267,7 @@ export class OrbitaTranspiler implements ITranspiler {
                 : sourceVarName;
 
             // Gera a condição
-            const condition = `${inputVarName} ${rule.condition} ${rule.value}`;
+            const condition = `${inputVarName} ${rule.condition} ${this.toPythonLiteral(rule.value)}`;
             logicConditions.push(condition);
         }
 
@@ -358,6 +398,14 @@ if ${combinedCondition}:
             // Remove blocos onde a entrada não está conectada
             loopCode = loopCode.replace(/\{\{#if input_(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, inputId, content) => {
                 return connectedInputs.has(inputId) ? content.trim() : '';
+            });
+
+            // Preenche placeholders restantes de entradas desconectadas com literais seguros
+            driver.inputs.forEach(input => {
+                if (!connectedInputs.has(input.id)) {
+                    const fallback = this.defaultLiteralForType(input.type);
+                    loopCode = loopCode.replace(new RegExp(`\\{\\{input_${input.id}\\}\\}`, 'g'), fallback);
+                }
             });
 
             // Remove linhas vazias múltiplas
