@@ -494,7 +494,7 @@ ${loopLines.map(line => '    ' + line.split('\n').join('\n    ')).join('\n')}
                         params.led_type = 'white';
                         params.blink_enabled = true;
                         params.blink_interval = action.config.interval ?? 500;
-                        params.blink_duty = action.config.duty ?? 50;
+                        params.blink_duty = 100;
                         params.blink_count_enabled = action.config.count_enabled ?? false;
                         params.blink_count = action.config.count ?? 5;
                         break;

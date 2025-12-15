@@ -403,7 +403,6 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last) >= {{interval}}:
             },
             { id: 'blink_enabled', label: 'Piscar automaticamente', type: 'boolean', default: false },
             { id: 'blink_interval', label: 'Intervalo de Pisca (ms)', type: 'number', default: 1000, min: 100, max: 10000 },
-            { id: 'blink_duty', label: 'Duty (%)', type: 'number', default: 50, min: 1, max: 99 },
             { id: 'blink_count_enabled', label: 'Limitar número de piscadas', type: 'boolean', default: false },
             { id: 'blink_count', label: 'Quantidade de piscadas', type: 'number', default: 3, min: 1, max: 100 }
         ],
@@ -453,9 +452,9 @@ if (not has_input) and {{action_white_mode}} == "fixed":
 {{#if blink_enabled}}
 if not has_input:
     interval_ms = {{blink_interval}}
-    duty = max(1, min({{blink_duty}}, 99)) / 100.0
+    duty = 1.0  # brilho máximo
     on_time = int(interval_ms * duty)
-    off_time = interval_ms - on_time
+    off_time = max(1, interval_ms - on_time)
     now = time.ticks_ms()
     if {{blink_count_enabled}} and {{var_name}}_blink_done >= {{blink_count}}:
         led_should_be_on = False

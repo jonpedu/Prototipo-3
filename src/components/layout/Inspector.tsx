@@ -64,12 +64,8 @@ export const Inspector: React.FC<InspectorProps> = ({ onCollapse }) => {
 
     if (driver.id === 'led_output') {
         const interval = Number(params.blink_interval ?? 0);
-        const duty = Number(params.blink_duty ?? 0);
         if (params.blink_enabled && interval < 100) {
             warnings.push('Intervalo de pisca abaixo de 100 ms pode não ser visível ou travar o loop.');
-        }
-        if (duty <= 0 || duty >= 100) {
-            warnings.push('Duty deve ficar entre 1% e 99% para o pisca funcionar.');
         }
         if (params.blink_count_enabled && params.blink_count <= 0) {
             warnings.push('Quantidade de piscadas deve ser maior que zero.');
@@ -395,7 +391,6 @@ export const Inspector: React.FC<InspectorProps> = ({ onCollapse }) => {
                                         'preset_color',
                                         'blink_enabled',
                                         'blink_interval',
-                                        'blink_duty',
                                         'blink_count_enabled',
                                         'blink_count'
                                     ].includes(param.id)) ||
@@ -419,7 +414,7 @@ export const Inspector: React.FC<InspectorProps> = ({ onCollapse }) => {
                                     if (!isRgb && ['pin_r', 'pin_g', 'pin_b', 'preset_color'].includes(param.id)) {
                                         return null;
                                     }
-                                    if (isRgb && ['pin', 'blink_enabled', 'blink_interval', 'blink_duty', 'blink_count_enabled', 'blink_count'].includes(param.id)) {
+                                    if (isRgb && ['pin', 'blink_enabled', 'blink_interval', 'blink_count_enabled', 'blink_count'].includes(param.id)) {
                                         return null;
                                     }
                                 }
