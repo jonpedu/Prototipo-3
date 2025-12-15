@@ -11,10 +11,14 @@ import { getDriver } from '../../core/drivers';
 import { useNodeConnections } from '../../hooks/useNodeConnections';
 import { HardwareCategory, LogicRule, LogicOperator, LogicAction } from '../../core/types';
 import { getPinLabel, getPinMapping, getHardwareProfile } from '../../config/hardware-profiles';
-import { Trash2, X, Zap, AlertTriangle } from 'lucide-react';
+import { Trash2, X, Zap, AlertTriangle, Minus } from 'lucide-react';
 import { getActionDefinition } from '../../config/actions';
 
-export const Inspector: React.FC = () => {
+type InspectorProps = {
+    onCollapse?: () => void;
+};
+
+export const Inspector: React.FC<InspectorProps> = ({ onCollapse }) => {
     const {
         selectedNode,
         updateNodeData,
@@ -32,7 +36,7 @@ export const Inspector: React.FC = () => {
 
     if (!selectedNode) {
         return (
-            <div className="w-80 bg-gray-950 border-l border-gray-800 p-4">
+            <div className="h-full bg-gray-950 p-4 overflow-y-auto">
                 <div className="flex items-center justify-center h-full text-gray-500 text-sm">
                     Selecione um componente para configurar
                 </div>
@@ -44,7 +48,7 @@ export const Inspector: React.FC = () => {
 
     if (!driver) {
         return (
-            <div className="w-80 bg-gray-950 border-l border-gray-800 p-4">
+            <div className="h-full bg-gray-950 p-4 overflow-y-auto">
                 <div className="text-red-400 text-sm">Driver não encontrado</div>
             </div>
         );
@@ -177,20 +181,32 @@ export const Inspector: React.FC = () => {
     };
 
     return (
-        <div className="w-80 bg-gray-950 border-l border-gray-800 overflow-y-auto">
-            <div className="p-4 space-y-4">
+        <div className="h-full bg-gray-950 overflow-y-auto p-4 space-y-4">
+            <div className="space-y-4">
                 {/* Header */}
                 <div className="flex items-start justify-between">
                     <div className="flex-grow">
                         <h2 className="text-lg font-semibold text-gray-200">{driver.name}</h2>
                         <p className="text-xs text-gray-500 mt-1">{driver.description}</p>
                     </div>
-                    <button
-                        onClick={() => selectNode(null)}
-                        className="text-gray-400 hover:text-gray-200 transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {onCollapse && (
+                            <button
+                                onClick={onCollapse}
+                                className="text-gray-400 hover:text-gray-200 transition-colors"
+                                title="Minimizar painel"
+                            >
+                                <Minus className="w-5 h-5" />
+                            </button>
+                        )}
+                        <button
+                            onClick={() => selectNode(null)}
+                            className="text-gray-400 hover:text-gray-200 transition-colors"
+                            title="Fechar seleção"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Nome do nó */}

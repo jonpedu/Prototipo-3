@@ -84,7 +84,7 @@ export const missionPresets: MissionPreset[] = [
             })
         ],
         edges: [
-            buildEdge('e-seq-led', 'seq1', 'state', 'led1', 'state')
+            buildEdge('e-seq-led', 'seq1', 'state', 'led1', 'input')
         ]
     },
     {
@@ -114,7 +114,7 @@ export const missionPresets: MissionPreset[] = [
             })
         ],
         edges: [
-            buildEdge('e-seq-buzz', 'seq2', 'state', 'buzz1', 'state')
+            buildEdge('e-seq-buzz', 'seq2', 'state', 'buzz1', 'input')
         ]
     },
     {
@@ -147,8 +147,8 @@ export const missionPresets: MissionPreset[] = [
             })
         ],
         edges: [
-            buildEdge('e-seq-led2', 'seq3', 'state', 'led2', 'state'),
-            buildEdge('e-seq-buzz2', 'seq3', 'state', 'buzz2', 'state')
+            buildEdge('e-seq-led2', 'seq3', 'state', 'led2', 'input'),
+            buildEdge('e-seq-buzz2', 'seq3', 'state', 'buzz2', 'input')
         ]
     }
 ];
