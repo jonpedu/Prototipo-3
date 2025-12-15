@@ -4,7 +4,7 @@
  * Implementa algoritmo de Topological Sort (Kahn's Algorithm)
  */
 
-import { OrbitaNode, OrbitaEdge, ITranspiler, TranspileResult, HardwareProfileType } from './types';
+import { OrbitaNode, OrbitaEdge, ITranspiler, TranspileResult, HardwareProfileType, DataType } from './types';
 import { getDriver } from './drivers';
 import { getHardwareProfile, getPinMapping } from '../config/hardware-profiles';
 
