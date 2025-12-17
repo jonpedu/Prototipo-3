@@ -450,6 +450,10 @@ if ${combinedCondition}:
                 key => this.isTruthyPlaceholder(key, paramLiterals, connectedInputs, inputLiterals)
             );
 
+            // Sanitiza literais JS e retornos inválidos em nível de loop
+            loopCode = loopCode.replace(/\btrue\b/g, 'True').replace(/\bfalse\b/g, 'False');
+            loopCode = loopCode.replace(/\breturn\b/g, 'continue');
+
             loopCode = loopCode.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
 
             if (node.data.logicRules && node.data.logicRules.length > 0) {
