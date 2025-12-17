@@ -1,18 +1,23 @@
 # 🛰️ ORBITA - Ambiente de Programação Visual para Nanossatélites
 
-![Status](https://img.shields.io/badge/Status-MVP_v2-success)
+![Status](https://img.shields.io/badge/Status-MVP_v2.1-success)
 ![React](https://img.shields.io/badge/React-18.2-61DAFB?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178C6?logo=typescript)
 ![React Flow](https://img.shields.io/badge/React_Flow-12.10-FF6B9D)
 
-**ORBITA** é uma Single Page Application (SPA) para programação visual de nanossatélites. Permite criar lógica de missão através de interface drag-and-drop, gerando código MicroPython otimizado para execução em ESP32, com suporte a parâmetros dinâmicos baseados em conexões entre componentes.
+**ORBITA** é uma Single Page Application (SPA) para programação visual de nanossatélites. Permite criar lógica de missão através de interface drag-and-drop, gerando código MicroPython otimizado para execução em ESP32, com suporte a parâmetros dinâmicos baseados em conexões, catálogo de ações plugáveis para atuadores e perfis de hardware (kits) que travam pinos automaticamente.
+
+**Novidades na v2.1**
+- Perfis de hardware selecionáveis (ESP32 Genérico, Pion CanSat V1, CubeSat V1) com pinos travados e filtragem de drivers conforme o kit.
+- Toolbar com salvar/carregar missão `.orbita`, presets rápidos de missão e seleção de kit ativa.
+- Catálogo de ações para atuadores (LED RGB/branco, buzzer) com painel dedicado para arrastar/soltar e configurar.
+- Biblioteca ampliada de drivers: sensores I2C (BME/BMP280, SHT20/31, CCS811, IMU), analógicos (LDR/VBAT), atuadores (servo, buzzer, logger SD) e blocos de tempo/lógica (sequencer, delay, comparator/threshold).
 
 ---
 
 ## 📚 Índice
 
 - [Quick Start](#-quick-start)
-- [Inspector Dinâmico ⭐ NOVO](#-inspector-dinâmico--novo)
 - [Arquitetura de Software](#-arquitetura-de-software)
 - [Fluxo de Dados](#-fluxo-de-dados)
 - [Sistema de Componentes](#-sistema-de-componentes)
@@ -41,65 +46,7 @@ Edite `.env` e altere `VITE_USE_MOCK=false`
 
 ---
 
-## � Inspector Dinâmico ⭐ NOVO
-
-**ORBITA v2.1** introduz o **Inspector Sensível ao Contexto**, uma inovação que revoluciona a programação visual:
-
-### **O Problema (Antes)**
-```
-Sensor → Comparador → LED
-         ↑
-    Configure threshold
-```
-- Requer nó intermediário (Comparador)
-- Mais conexões = grafo poluído
-- Configuração separada do contexto
-
-### **A Solução (Agora)**
-```
-Sensor → LED
-         ↑
-    Configure threshold (automaticamente)
-```
-- LED detecta conexão de temperatura
-- Inspector mostra campos contextuais: "Condição" e "Limite"
-- Valores configurados diretamente no atuador
-
-### **Como Funciona**
-
-1. **Conecte** `Sensor.temperature` → `LED.temperature`
-2. **Inspector detecta** a conexão automaticamente
-3. **Card azul aparece** com parâmetros dinâmicos:
-   - Condição de Temperatura: `>` (maior que)
-   - Limite de Temperatura (°C): `30`
-4. **Código gerado:**
-   ```python
-   if temperature_sensor_001_temp > 30:
-       led_should_be_on = True
-   ```
-
-### **Benefícios**
-
-| Característica | Antes | Depois |
-|----------------|-------|--------|
-| Nós necessários | 3 | 2 |
-| Conexões | 2 | 1 |
-| Tempo de setup | ~60s | ~20s |
-| Complexidade visual | Alta | Baixa |
-
-### **Tutoriais Completos**
-
-📖 **[TUTORIAL_INSPECTOR_DINAMICO.md](./TUTORIAL_INSPECTOR_DINAMICO.md)**
-
-4 tutoriais passo a passo:
-1. LED Inteligente Básico
-2. LED com Múltiplas Condições
-3. Servo Motor Controlado por Valor
-4. Sistema de Alarme Avançado
-
----
-
-## �🏗️ Arquitetura de Software
+## 🏗️ Arquitetura de Software
 
 ### **Visão Geral**
 
@@ -172,6 +119,7 @@ Sidebar (Drag) → Canvas (Drop) → Store.addNode() → nodes[]
 ```
 
 - Usuário arrasta driver da Sidebar
+- Sidebar já aplica filtros de drivers permitidos pelo perfil de hardware ativo
 - Canvas detecta drop e cria novo nó
 - Store adiciona ao array `nodes[]` com ID único
 - React Flow re-renderiza automaticamente
@@ -262,6 +210,15 @@ ESP32 Serial → SerialBridge → Store.addTelemetryMessage() → Console
 }
 ```
 
+### **7. Persistência de Missões**
+
+```
+nodes + edges + hardwareProfile → saveMission() → arquivo .orbita
+```
+
+- O Toolbar exporta/importa `.orbita` com schema 2.1 (inclui assinatura de drivers e perfil ativo).
+- Carregamento remapeia edges legadas e avisa sobre diferenças de versão/driver.
+
 ---
 
 ## 🧩 Sistema de Componentes
@@ -292,47 +249,57 @@ interface HardwareDriver {
 
 ### **Parâmetros Dinâmicos**
 
-Sistema inovador que mostra parâmetros **apenas quando entrada está conectada**:
+Sistema que exibe parâmetros **apenas quando a entrada correspondente está conectada**, mantendo o Inspector enxuto. Hoje é usado em drivers que reagem a múltiplos tipos de entrada (ex.: servo motor reagindo a temperatura **ou** valor analógico).
 
 ```typescript
 dynamicParameters: [
   {
-    inputId: 'temperature',      // Aparece quando 'temperature' conectada
+    inputId: 'temperature',      // Aparece quando 'temperature' está ligada
     parameters: [
       {
-        id: 'temp_operator',
+        id: 'servo_temp_operator',
         label: 'Condição de Temperatura',
         type: 'select',
-        options: ['>', '<', '>=', '<=', '==']
+        options: ['>', '<', '>=', '<=']
       },
       {
-        id: 'temp_threshold',
+        id: 'servo_temp_threshold',
         label: 'Limite (°C)',
         type: 'number',
-        default: 30
+        default: 25
+      },
+      {
+        id: 'servo_temp_angle',
+        label: 'Ângulo quando ativo',
+        type: 'number',
+        default: 180
       }
     ]
   }
 ]
 ```
 
-**Exemplo: LED com Temperatura**
-- Usuário conecta `DHT11.temperature` → `LED.temperature`
-- Inspector detecta conexão automaticamente
-- Exibe card azul com "Condições da Entrada 'Temperatura'"
-- Usuário configura: `temp > 30`
-- Transpiler gera: `if temp_sensor_001_temperature > 30: led.value(1)`
+**Exemplo: Servo condicionado por temperatura**
+- Usuário conecta `BME280.temperature` → `Servo.temperature`
+- Inspector revela o card azul de condições para temperatura
+- Usuário define: operador `>` e limite `30`, ângulo `180`
+- O código gerado move o servo para 180° quando a condição é satisfeita
 
-### **Componentes Disponíveis**
+### **Componentes Disponíveis (v2.1)**
 
-| Categoria | Componente | Entradas | Saídas | Parâmetros Dinâmicos |
-|-----------|-----------|----------|--------|---------------------|
-| **Sensores** | Gerador de Dados | - | value | - |
-| | DHT11/DHT22 | - | temperature, humidity | - |
-| **Atuadores** | LED | temperature, humidity, value, state | - | ✅ Condições para cada entrada |
-| | Console Log | value | - | - |
-| **Lógica** | Comparador | a, b | result | - |
-| | Limiar | value | active | - |
+- **Sensores**: Gerador de Dados (mock), DHT11/22, BME/BMP280 (temp/umidade/pressão), SHT20/31, CCS811 (eCO2/TVOC), IMU MPU9250/BMX055, LDR (ADC), VBAT (ADC).
+- **Atuadores**: LED branco/RGB (presets de cor, blink, ações), Buzzer (beep único, padrão, alerta), Servo Motor (ângulo direto ou condicionado), Console Log, Logger SD (append). 
+- **Lógica / Tempo**: Comparador, Limiar, Delay Trigger (gatilho com atraso), Sequencer Timer (até 4 passos, repetir/loop).
+- **Comunicação / Armazenamento**: Logger SD com CS configurável.
+
+### **Perfis de Hardware (Kits)**
+- **ESP32 Genérico**: todos os drivers liberados; pinos editáveis.
+- **Pion CanSat V1**: pinos travados conforme datasheet; apenas drivers do kit aparecem na Sidebar.
+- **CubeSat V1 (placeholder)**: pinos e drivers pré-selecionados para cenários CubeSat.
+
+### **Ações para Atuadores**
+- Painel dedicado permite anexar ações pré-definidas para LED (piscar periódico, cor fixa, alerta por limiar) e buzzer (beep, padrão, alerta). 
+- Ações podem ser arrastadas para o Canvas ou aplicadas via clique, ficam listadas no Inspector e têm configuração própria.
 
 ---
 
@@ -360,48 +327,82 @@ dynamicParameters: [
 
 **Input (Grafo Visual):**
 ```
-DHT11 (pin=4) → [temperature] → LED (pin=2, temp>30)
+Sequencer → [state] → LED
 ```
 
 **Output (MicroPython):**
 ```python
 # ================================================
 # ORBITA - Código gerado automaticamente
-# 2025-12-10T15:30:00.000Z
 # Total de nós: 2
 # ================================================
-from machine import Pin
-import dht
+from machine import Pin, PWM
 import time
 
 # ===== INICIALIZAÇÃO =====
-temperature_sensor_001_sensor = dht.DHT11(Pin(4))
-temperature_sensor_001_last_read = 0
-temperature_sensor_001_temp = 0
-temperature_sensor_001_hum = 0
+sequence_timer_001_steps = [
+  (True, 600),
+  (False, 600)
+]
+sequence_timer_001_steps = [(s, d) for (s, d) in sequence_timer_001_steps if d > 0]
+sequence_timer_001_index = 0
+sequence_timer_001_last = time.ticks_ms()
+sequence_timer_001_state = False
+sequence_timer_001_step = 0
+sequence_timer_001_start_delay = 0
+sequence_timer_001_started = False
 
 led_output_001_led = Pin(2, Pin.OUT)
+led_output_001_pwm_r = PWM(Pin(12))
+led_output_001_pwm_g = PWM(Pin(13))
+led_output_001_pwm_b = PWM(Pin(14))
+led_output_001_pwm_r.freq(1000)
+led_output_001_pwm_g.freq(1000)
+led_output_001_pwm_b.freq(1000)
+led_output_001_blink_state = False
+led_output_001_blink_last = 0
+led_output_001_blink_done = 0
 
 # ===== LOOP PRINCIPAL =====
 while True:
-    if time.ticks_diff(time.ticks_ms(), temperature_sensor_001_last_read) >= 2000:
-        try:
-            temperature_sensor_001_sensor.measure()
-            temperature_sensor_001_temp = temperature_sensor_001_sensor.temperature()
-            temperature_sensor_001_hum = temperature_sensor_001_sensor.humidity()
-            temperature_sensor_001_last_read = time.ticks_ms()
-        except Exception as e:
-            print("Erro DHT:", e)
-    
-    # Avalia condições baseadas nas entradas conectadas
-    led_should_be_on = False
-    
-    if temperature_sensor_001_temperature > 30:
-        led_should_be_on = True
-    
-    led_output_001_led.value(1 if led_should_be_on else 0)
-    
-    time.sleep_ms(50)  # Pequeno delay para evitar sobrecarga
+  # Sequencer: liga/desliga de 600 ms
+  start_active = True
+  if len(sequence_timer_001_steps) == 0:
+    sequence_timer_001_state = False
+    sequence_timer_001_step = 0
+  elif not start_active:
+    sequence_timer_001_index = 0
+    sequence_timer_001_started = False
+    sequence_timer_001_last = time.ticks_ms()
+    sequence_timer_001_state = False
+    sequence_timer_001_step = 0
+  else:
+    now = time.ticks_ms()
+    if not sequence_timer_001_started:
+      sequence_timer_001_started = True
+      sequence_timer_001_last = now
+
+    target_state, duration_ms = sequence_timer_001_steps[sequence_timer_001_index]
+    if time.ticks_diff(now, sequence_timer_001_last) >= duration_ms:
+      sequence_timer_001_index += 1
+      if sequence_timer_001_index >= len(sequence_timer_001_steps):
+        sequence_timer_001_index = 0
+      sequence_timer_001_last = now
+      target_state, duration_ms = sequence_timer_001_steps[sequence_timer_001_index]
+
+    sequence_timer_001_state = bool(target_state)
+    sequence_timer_001_step = sequence_timer_001_index + 1
+
+  # LED consome estado do sequencer
+  has_input = True
+  input_on = bool(sequence_timer_001_state)
+  led_should_be_on = input_on
+
+  # LED branco simples (sem blink)
+  led_output_001_led.value(1 if led_should_be_on else 0)
+  led_output_001_pwm_r.duty(0)
+  led_output_001_pwm_g.duty(0)
+  led_output_001_pwm_b.duty(0)
 ```
 
 ---
@@ -481,49 +482,52 @@ class RealSerialBridge {
 ### **Componentes de Layout**
 
 1. **Toolbar** (Topo)
-   - Botões: Conectar, Upload, Limpar Console
-   - Status: Conexão, Modo Mock, Contador de nós
-   - Badges coloridos por estado (verde/amarelo/vermelho)
+  - Botões: Conectar/Desconectar, Upload, Limpar Console, Nova missão, Salvar `.orbita`, Carregar `.orbita`
+  - Dropdown de **perfil de hardware** (kits) e contagem de componentes
+  - Presets rápidos de missão (preenche canvas com sequências prontas)
+  - Badges de estado (mock/hardware, conectado/uploading/running)
 
 2. **Sidebar** (Esquerda - 256px)
-   - Lista de componentes por categoria
-   - Drag handles para arrastar ao canvas
-   - Ícones Lucide React
+  - Lista de componentes filtrada pelo perfil de hardware selecionado
+  - Busca e colapso por categoria
+  - Arraste para o canvas
 
 3. **Canvas** (Centro - React Flow)
-   - Grid de pontos (BackgroundVariant.Dots)
-   - Controles de zoom/pan
-   - Minimap com cores por categoria
-   - Setas direcionais nas edges
-   - Deleção: Select + Delete key
+  - Grid de pontos, zoom/pan, minimap colorido por categoria
+  - Setas direcionais, edges suaves, deleção por Delete/Backspace
+  - Suporta drop de componentes **e** ações (quando um atuador está selecionado)
 
 4. **Inspector** (Direita - 320px)
-   - Nome do componente (editável)
-   - Parâmetros estáticos (card cinza)
-   - **Parâmetros dinâmicos** (card azul) ← NOVIDADE
-   - Lista de conectores (inputs/outputs)
-   - Botão de remoção
+  - Nome do componente e parâmetros estáticos
+  - **Parâmetros dinâmicos** exibidos conforme entradas conectadas
+  - Lista de conexões, avisos de segurança e teste rápido de atuadores
+  - Configuração das ações anexadas (LED/buzzer)
 
-5. **Console** (Inferior - 192px)
-   - Logs de telemetria com timestamp
-   - Cores por tipo: verde (data), cinza (log), vermelho (error)
-   - Auto-scroll
-   - Contador de mensagens
+5. **Action Panel** (Inferior opcional)
+  - Catálogo de ações pré-definidas para o atuador selecionado
+  - Arraste/solte para o canvas ou clique para anexar
+
+6. **Console** (Inferior - 192px)
+  - Logs de telemetria com timestamp
+  - Cores por tipo: verde (data), cinza (log), vermelho (error)
+  - Auto-scroll e limpeza rápida
 
 ### **Interações do Usuário**
 
 | Ação | Resultado |
 |------|-----------|
-| Arrastar componente da Sidebar → Canvas | Cria novo nó |
+| Arrastar componente da Sidebar → Canvas | Cria novo nó (respeita drivers permitidos pelo perfil ativo) |
+| Arrastar ação do Action Panel → Canvas | Anexa ação ao atuador selecionado |
 | Arrastar handle circular → outro handle | Cria edge (conexão) |
 | Clicar em nó | Seleciona e abre Inspector |
 | Clicar em edge | Seleciona edge (fica dourada) |
 | Delete (nó selecionado) | Remove nó + edges conectadas |
 | Delete (edge selecionada) | Remove apenas a conexão |
 | Ctrl + clique múltiplo | Seleção múltipla |
-| Editar campo no Inspector | Atualiza `node.data.parameters` |
-| Conectar entrada | Inspector mostra parâmetros dinâmicos |
+| Editar campo no Inspector | Atualiza `node.data.parameters` ou ações anexadas |
+| Conectar entrada | Inspector mostra parâmetros dinâmicos quando existirem |
 | Botão "Upload" | Transpila + Envia para ESP32 |
+| Botões Salvar/Carregar | Exporta ou importa missão `.orbita` (inclui nodes, edges, perfil) |
 
 ### **Tema Visual**
 
@@ -596,6 +600,11 @@ Prototipo-3/
 │   │   ├── transpiler.ts       # Algoritmo topológico + codegen
 │   │   └── serial.ts           # Mock + Real SerialBridge
 │   │
+│   ├── config/                 # Perfis de hardware e catálogos
+│   │   ├── hardware-profiles.ts# Perfis (ESP32 gen, Pion CanSat, CubeSat)
+│   │   ├── mission-presets.ts  # Missões rápidas (piscar/beep)
+│   │   └── actions.ts          # Catálogo de ações para atuadores
+│   │
 │   ├── store/
 │   │   └── useStore.ts         # Zustand store único
 │   │
@@ -606,7 +615,8 @@ Prototipo-3/
 │   │   │   ├── Toolbar.tsx     # Barra superior
 │   │   │   ├── Sidebar.tsx     # Painel de componentes
 │   │   │   ├── Canvas.tsx      # Área de trabalho
-│   │   │   ├── Inspector.tsx   # Painel de config (com dinâmicos)
+│   │   │   ├── Inspector.tsx   # Painel de config (params + ações)
+│   │   │   └── ActionPanel.tsx # Painel de ações para atuadores
 │   │   │   └── Console.tsx     # Telemetria
 │   │   └── ui/
 │   │       ├── Button.tsx      # Botão reutilizável
