@@ -4,9 +4,74 @@
  * Implementa algoritmo de Topological Sort (Kahn's Algorithm)
  */
 
-import { OrbitaNode, OrbitaEdge, ITranspiler, TranspileResult, HardwareProfileType, DataType } from './types';
+import { OrbitaNode, OrbitaEdge, ITranspiler, TranspileResult, HardwareProfileType, DataType, HardwareDriver } from './types';
 import { getDriver } from './drivers';
-import { getHardwareProfile, getPinMapping } from '../config/hardware-profiles';
+import { getHardwareProfile } from '../config/hardware-profiles';
+
+class GeneratorState {
+    private readonly imports = new Set<string>(['import time']);
+    private readonly setup: string[] = [];
+    private readonly loop: string[] = [];
+    private readonly nodeCount: number;
+
+    constructor(nodeCount: number) {
+        this.nodeCount = nodeCount;
+    }
+
+    addImport(value: string | string[]) {
+        const list = Array.isArray(value) ? value : [value];
+        list.forEach(item => this.imports.add(item));
+    }
+
+    addSetup(line: string) {
+        if (line.trim()) this.setup.push(line.trim());
+    }
+
+    addLoop(line: string) {
+        if (line.trim()) this.loop.push(line.trim());
+    }
+
+    emit(): string {
+        const header = `# ================================================
+# ORBITA - Código gerado automaticamente
+# ${new Date().toISOString()}
+# Total de nós: ${this.nodeCount}
+# ================================================
+`;
+
+        const fromImports = new Map<string, Set<string>>();
+        const plainImports: string[] = [];
+
+        this.imports.forEach(imp => {
+            const match = imp.match(/^from\s+([^\s]+)\s+import\s+(.+)$/);
+            if (match) {
+                const mod = match[1];
+                const names = match[2].split(',').map(s => s.trim());
+                if (!fromImports.has(mod)) fromImports.set(mod, new Set());
+                names.forEach(n => fromImports.get(mod)!.add(n));
+            } else {
+                plainImports.push(imp);
+            }
+        });
+
+        const mergedFromImports = Array.from(fromImports.entries())
+            .map(([mod, names]) => `from ${mod} import ${Array.from(names).sort().join(', ')}`);
+
+        const importsSection = [...plainImports.sort(), ...mergedFromImports.sort()].join('\n');
+        const setupSection = this.setup.length > 0
+            ? `\n# ===== INICIALIZAÇÃO =====\n${this.setup.join('\n')}\n`
+            : '';
+
+        const loopSection = `
+# ===== LOOP PRINCIPAL =====
+while True:
+${this.loop.map(line => '    ' + line.split('\n').join('\n    ')).join('\n')}
+    time.sleep_ms(50)  # Pequeno delay para evitar sobrecarga
+`;
+
+        return header + importsSection + setupSection + loopSection;
+    }
+}
 
 export class OrbitaTranspiler implements ITranspiler {
 
@@ -296,22 +361,19 @@ if ${combinedCondition}:
         profile: HardwareProfileType,
         warnings: string[]
     ): string {
-        const imports = new Set<string>(['import time']);
-        const setupLines: string[] = [];
-        const loopLines: string[] = [];
         const profileInfo = getHardwareProfile(profile);
+        const gen = new GeneratorState(sortedNodes.length);
 
         sortedNodes.forEach(node => {
             const driver = getDriver(node.data.driverId);
             if (!driver) return;
 
             const varName = variableMap[node.id];
-            const params = { ...node.data.parameters };
+            const params = this.mergeParamsWithDefaults(driver, node.data.parameters || {});
 
-            // Ajusta parametros com base nas acoes anexadas ao atuador
             this.applyActionsToParams(node, params);
 
-            // Valida tipos e conexões
+            // Validação de entradas e tipos
             driver.inputs.forEach(input => {
                 const incomingEdge = edges.find(e => e.target === node.id && e.targetHandle === input.id);
                 if (!incomingEdge) {
@@ -326,7 +388,7 @@ if ${combinedCondition}:
                 }
             });
 
-            // Aplica mapeamento de pinos do perfil (travados) quando existir
+            // Mapeamento de pinos do perfil
             profileInfo.pinMappings
                 .filter(m => m.driverId === driver.id)
                 .forEach(mapping => {
@@ -340,36 +402,25 @@ if ${combinedCondition}:
                     }
                 });
 
-            // Coleta imports
-            driver.code.imports.forEach(imp => imports.add(imp));
+            gen.addImport(driver.code.imports);
 
-            // Substitui placeholders no código de setup
-            let setupCode = driver.code.setupCode
-                .replace(/\{\{var_name\}\}/g, varName);
-
-            // Substitui parâmetros (incluindo estáticos e dinâmicos)
+            const paramLiterals: Record<string, string> = {};
             Object.keys(params).forEach(key => {
-                const value = params[key];
-                const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
-                setupCode = setupCode.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), valueStr);
+                paramLiterals[key] = this.toPythonLiteral(params[key]);
             });
 
-            if (setupCode.trim()) setupLines.push(setupCode);
-
-            // Substitui placeholders no código de loop
-            let loopCode = driver.code.loopCode
-                .replace(/\{\{var_name\}\}/g, varName);
-
-            // Substitui TODOS os parâmetros (estáticos e dinâmicos)
-            // Isso inclui temp_operator, temp_threshold, hum_operator, etc.
-            Object.keys(params).forEach(key => {
-                const value = params[key];
-                const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
-                loopCode = loopCode.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), valueStr);
+            // Setup
+            let setupCode = this.replacePlaceholders(driver.code.setupCode, {
+                var_name: varName,
+                ...paramLiterals
             });
+            setupCode = this.processConditionals(setupCode, key => this.isTruthyPlaceholder(key, paramLiterals, new Set(), {}));
+            this.ensureNoUnresolvedPlaceholders(setupCode, driver, node);
+            gen.addSetup(setupCode);
 
-            // Resolve entradas (conexões de outros nós)
+            // Loop
             const connectedInputs = new Set<string>();
+            const inputLiterals: Record<string, string> = {};
 
             driver.inputs.forEach(input => {
                 const incomingEdge = edges.find(e => e.target === node.id && e.targetHandle === input.id);
@@ -379,86 +430,97 @@ if ${combinedCondition}:
                     if (sourceNode) {
                         const sourceVarName = variableMap[incomingEdge.source];
                         const sourceDriver = getDriver(sourceNode.data.driverId);
-
-                        // Encontra a porta de saída correspondente
                         const sourceOutput = sourceDriver?.outputs.find(o => o.id === incomingEdge.sourceHandle);
-                        const inputVarName = sourceOutput
-                            ? `${sourceVarName}_${sourceOutput.id}`
-                            : sourceVarName;
-
-                        loopCode = loopCode.replace(
-                            new RegExp(`\\{\\{input_${input.id}\\}\\}`, 'g'),
-                            inputVarName
-                        );
+                        const inputVarName = sourceOutput ? `${sourceVarName}_${sourceOutput.id}` : sourceVarName;
+                        inputLiterals[`input_${input.id}`] = inputVarName;
                     }
+                } else {
+                    inputLiterals[`input_${input.id}`] = this.defaultLiteralForType(input.type);
                 }
             });
 
-            // Processa blocos condicionais {{#if input_xxx}}...{{/if}}
-            // Remove blocos onde a entrada não está conectada
-            loopCode = loopCode.replace(/\{\{#if input_(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, inputId, content) => {
-                return connectedInputs.has(inputId) ? content.trim() : '';
+            let loopCode = this.replacePlaceholders(driver.code.loopCode, {
+                var_name: varName,
+                ...paramLiterals,
+                ...inputLiterals
             });
 
-            // Preenche placeholders restantes de entradas desconectadas com literais seguros
-            driver.inputs.forEach(input => {
-                if (!connectedInputs.has(input.id)) {
-                    const fallback = this.defaultLiteralForType(input.type);
-                    loopCode = loopCode.replace(new RegExp(`\\{\\{input_${input.id}\\}\\}`, 'g'), fallback);
-                }
-            });
+            loopCode = this.processConditionals(
+                loopCode,
+                key => this.isTruthyPlaceholder(key, paramLiterals, connectedInputs, inputLiterals)
+            );
 
-            // Remove linhas vazias múltiplas
             loopCode = loopCode.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
 
-            // Processa Logic Rules (apenas para atuadores)
             if (node.data.logicRules && node.data.logicRules.length > 0) {
                 loopCode = this.applyLogicRules(node, loopCode, sortedNodes, variableMap);
             }
 
-            if (loopCode.trim()) loopLines.push(loopCode);
+            this.ensureNoUnresolvedPlaceholders(loopCode, driver, node);
+            if (loopCode.trim()) gen.addLoop(loopCode);
         });
 
-        // Monta o código final
-        const header = `# ================================================
-# ORBITA - Código gerado automaticamente
-# ${new Date().toISOString()}
-# Total de nós: ${sortedNodes.length}
-# ================================================
-`;
+        return gen.emit();
+    }
 
-        // Dedup avançado: agrupa imports "from X import ..."
-        const fromImports = new Map<string, Set<string>>();
-        const plainImports: string[] = [];
+    private mergeParamsWithDefaults(driver: HardwareDriver, nodeParams: Record<string, any>): Record<string, any> {
+        const merged: Record<string, any> = {};
 
-        imports.forEach(imp => {
-            const match = imp.match(/^from\s+([^\s]+)\s+import\s+(.+)$/);
-            if (match) {
-                const mod = match[1];
-                const names = match[2].split(',').map(s => s.trim());
-                if (!fromImports.has(mod)) fromImports.set(mod, new Set());
-                names.forEach(n => fromImports.get(mod)!.add(n));
-            } else {
-                plainImports.push(imp);
+        (driver.parameters || []).forEach(param => {
+            if (param.default !== undefined) {
+                merged[param.id] = param.default;
             }
         });
 
-        const mergedFromImports = Array.from(fromImports.entries())
-            .map(([mod, names]) => `from ${mod} import ${Array.from(names).sort().join(', ')}`);
+        Object.keys(nodeParams || {}).forEach(key => {
+            merged[key] = nodeParams[key];
+        });
 
-        const importsSection = [...plainImports.sort(), ...mergedFromImports.sort()].join('\n');
-        const setupSection = setupLines.length > 0
-            ? `\n# ===== INICIALIZAÇÃO =====\n${setupLines.join('\n')}\n`
-            : '';
+        (driver.parameters || []).forEach(param => {
+            if (merged[param.id] === undefined && param.default === undefined) {
+                throw new Error(`Parâmetro obrigatório ausente para ${driver.name}: ${param.id}`);
+            }
+        });
 
-        const loopSection = `
-# ===== LOOP PRINCIPAL =====
-while True:
-${loopLines.map(line => '    ' + line.split('\n').join('\n    ')).join('\n')}
-    time.sleep_ms(50)  # Pequeno delay para evitar sobrecarga
-`;
+        return merged;
+    }
 
-        return header + importsSection + setupSection + loopSection;
+    private replacePlaceholders(template: string, values: Record<string, string>): string {
+        let result = template || '';
+        Object.entries(values).forEach(([key, val]) => {
+            result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val);
+        });
+        return result;
+    }
+
+    private processConditionals(template: string, isTruthy: (key: string) => boolean): string {
+        return (template || '').replace(/\{\{#if\s+([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, key, content) => {
+            return isTruthy(key.trim()) ? content.trim() : '';
+        });
+    }
+
+    private isTruthyPlaceholder(
+        key: string,
+        paramLiterals: Record<string, string>,
+        connectedInputs: Set<string>,
+        inputLiterals: Record<string, string>
+    ): boolean {
+        if (key.startsWith('input_')) {
+            return connectedInputs.has(key.replace('input_', ''));
+        }
+        if (paramLiterals[key] !== undefined) {
+            const val = paramLiterals[key];
+            return !['False', 'None', '0', '""', "''", '[]', '{}'].includes(val);
+        }
+        if (inputLiterals[key] !== undefined) return true;
+        return false;
+    }
+
+    private ensureNoUnresolvedPlaceholders(code: string, driver: HardwareDriver, node: OrbitaNode) {
+        const leftovers = (code.match(/\{\{[^}]+\}\}/g) || []).filter(p => !p.startsWith('{{/'));
+        if (leftovers.length > 0) {
+            throw new Error(`Placeholders não resolvidos em ${driver.name} (${node.data.label}): ${leftovers.join(', ')}`);
+        }
     }
 
     /**
