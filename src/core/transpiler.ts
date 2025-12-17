@@ -13,6 +13,7 @@ class GeneratorState {
     private readonly setup: string[] = [];
     private readonly loop: string[] = [];
     private readonly nodeCount: number;
+    private readonly libraries = new Set<string>();
 
     constructor(nodeCount: number) {
         this.nodeCount = nodeCount;
@@ -21,6 +22,11 @@ class GeneratorState {
     addImport(value: string | string[]) {
         const list = Array.isArray(value) ? value : [value];
         list.forEach(item => this.imports.add(item));
+    }
+
+    addLibrary(value: string | string[]) {
+        const list = Array.isArray(value) ? value : [value];
+        list.forEach(item => this.libraries.add(item));
     }
 
     addSetup(line: string) {
@@ -57,7 +63,7 @@ class GeneratorState {
         const mergedFromImports = Array.from(fromImports.entries())
             .map(([mod, names]) => `from ${mod} import ${Array.from(names).sort().join(', ')}`);
 
-        const importsSection = [...plainImports.sort(), ...mergedFromImports.sort()].join('\n');
+        const importsSection = this.renderImports([...plainImports.sort(), ...mergedFromImports.sort()]);
         const setupSection = this.setup.length > 0
             ? `\n# ===== INICIALIZAÇÃO =====\n${this.setup.join('\n')}\n`
             : '';
@@ -70,6 +76,39 @@ ${this.loop.map(line => '    ' + line.split('\n').join('\n    ')).join('\n')}
 `;
 
         return header + importsSection + setupSection + loopSection;
+    }
+
+    private renderImports(lines: string[]): string {
+        if (this.libraries.size === 0) {
+            return lines.join('\n');
+        }
+
+        const libChecks: string[] = [
+            'missing_libs = []',
+            'def _ensure_lib(mod):',
+            '    try:',
+            '        __import__(mod)',
+            '        return True',
+            '    except ImportError as e:',
+            "        print('Biblioteca ausente:', mod)",
+            '        missing_libs.append(mod)',
+            '        return False'
+        ];
+
+        const processed: string[] = [];
+        lines.forEach(line => {
+            const simple = line.match(/^import\s+([\w_]+)/);
+            const fromImport = line.match(/^from\s+([\w_]+)\s+import\s+(.+)/);
+            if (simple && this.libraries.has(simple[1])) {
+                processed.push(`if _ensure_lib('${simple[1]}'):\n    ${line}`);
+            } else if (fromImport && this.libraries.has(fromImport[1])) {
+                processed.push(`if _ensure_lib('${fromImport[1]}'):\n    ${line}`);
+            } else {
+                processed.push(line);
+            }
+        });
+
+        return [...libChecks, ...processed].join('\n');
     }
 }
 
@@ -403,6 +442,9 @@ if ${combinedCondition}:
                 });
 
             gen.addImport(driver.code.imports);
+            if (driver.code.libraries) {
+                gen.addLibrary(driver.code.libraries);
+            }
 
             const paramLiterals: Record<string, string> = {};
             Object.keys(params).forEach(key => {

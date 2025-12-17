@@ -82,6 +82,7 @@ export interface HardwareDriver {
         imports: string[];      // Ex: ["from machine import Pin", "import dht"]
         setupCode: string;      // Código executado uma vez (inicialização)
         loopCode: string;       // Código executado no loop principal
+        libraries?: string[];   // Bibliotecas externas a validar/instalar (ex: ["dht", "bme280"])
     };
 }
 

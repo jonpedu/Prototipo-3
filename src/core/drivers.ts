@@ -74,6 +74,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last_time) >= {{interval}}:
 
         code: {
             imports: ['from machine import Pin', 'import dht', 'import time'],
+            libraries: ['dht'],
             setupCode: `
 {{var_name}}_sensor = dht.DHT{{sensor_type}}(Pin({{pin}}))
 {{var_name}}_last_read = 0
@@ -116,6 +117,7 @@ if time.ticks_diff(time.ticks_ms(), {{var_name}}_last_read) >= {{interval}}:
 
         code: {
             imports: ['from machine import Pin, I2C', 'import bme280', 'import time'],
+            libraries: ['bme280'],
             setupCode: `
 {{var_name}}_i2c = I2C(0, sda=Pin({{sda}}), scl=Pin({{scl}}))
 {{var_name}}_sensor = bme280.BME280(i2c={{var_name}}_i2c, address=int({{address}}, 16))
@@ -1026,7 +1028,7 @@ else:
             {{var_name}}_step = 0
             {{var_name}}_state = {{var_name}}_state
             {{var_name}}_step = {{var_name}}_step
-            return
+            continue
 
     target_state, duration_ms = {{var_name}}_steps[{{var_name}}_index]
     if time.ticks_diff(now, {{var_name}}_last) >= duration_ms:
