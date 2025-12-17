@@ -1079,7 +1079,17 @@ else:
         code: {
             imports: [],
             setupCode: '',
-            loopCode: '{{var_name}} = {{input_value}} {{mode === "above" ? ">" : "<"}} {{threshold}}'
+            loopCode: `
+    {{var_name}} = False
+    try:
+        _val = {{input_value}}
+        if {{mode}} == "above":
+            {{var_name}} = _val > {{threshold}}
+        else:
+            {{var_name}} = _val < {{threshold}}
+    except Exception as e:
+        {{var_name}} = False
+    `.trim()
         }
     }
 };

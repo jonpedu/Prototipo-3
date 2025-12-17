@@ -347,11 +347,10 @@ if ${combinedCondition}:
             let setupCode = driver.code.setupCode
                 .replace(/\{\{var_name\}\}/g, varName);
 
-            // Substitui parâmetros (incluindo estáticos e dinâmicos)
+            // Substitui parâmetros (incluindo estáticos e dinâmicos) com literais Python seguros
             Object.keys(params).forEach(key => {
-                const value = params[key];
-                const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
-                setupCode = setupCode.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), valueStr);
+                const valueStr = this.toPythonLiteral(params[key]);
+                setupCode = setupCode.replace(new RegExp(`\\{\\{${key}\\}\}`, 'g'), valueStr);
             });
 
             if (setupCode.trim()) setupLines.push(setupCode);
@@ -360,12 +359,10 @@ if ${combinedCondition}:
             let loopCode = driver.code.loopCode
                 .replace(/\{\{var_name\}\}/g, varName);
 
-            // Substitui TODOS os parâmetros (estáticos e dinâmicos)
-            // Isso inclui temp_operator, temp_threshold, hum_operator, etc.
+            // Substitui TODOS os parâmetros (estáticos e dinâmicos) usando literais Python
             Object.keys(params).forEach(key => {
-                const value = params[key];
-                const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
-                loopCode = loopCode.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), valueStr);
+                const valueStr = this.toPythonLiteral(params[key]);
+                loopCode = loopCode.replace(new RegExp(`\\{\\{${key}\\}\}`, 'g'), valueStr);
             });
 
             // Resolve entradas (conexões de outros nós)
@@ -394,10 +391,15 @@ if ${combinedCondition}:
                 }
             });
 
-            // Processa blocos condicionais {{#if input_xxx}}...{{/if}}
-            // Remove blocos onde a entrada não está conectada
+            // Processa blocos condicionais {{#if input_xxx}}...{{/if}} baseados em conexões
             loopCode = loopCode.replace(/\{\{#if input_(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, inputId, content) => {
                 return connectedInputs.has(inputId) ? content.trim() : '';
+            });
+
+            // Processa blocos condicionais gerais {{#if flag}}...{{/if}} baseados em params
+            loopCode = loopCode.replace(/\{\{#if (\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, flag, content) => {
+                const flagVal = params[flag];
+                return flagVal ? content.trim() : '';
             });
 
             // Preenche placeholders restantes de entradas desconectadas com literais seguros
@@ -407,6 +409,12 @@ if ${combinedCondition}:
                     loopCode = loopCode.replace(new RegExp(`\\{\\{input_${input.id}\\}\\}`, 'g'), fallback);
                 }
             });
+
+            // Normaliza literais booleanos e elimina retornos dentro do loop
+            loopCode = loopCode
+                .replace(/\btrue\b/g, 'True')
+                .replace(/\bfalse\b/g, 'False')
+                .replace(/\breturn\b/g, 'continue');
 
             // Remove linhas vazias múltiplas
             loopCode = loopCode.replace(/\n\s*\n\s*\n/g, '\n\n').trim();

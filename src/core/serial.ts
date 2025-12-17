@@ -130,6 +130,18 @@ class MockSerialBridge implements ISerialBridge {
             content: '=== Código em execução ==='
         });
 
+        // Valida código gerado para simular erros do MicroPython
+        const issues = this.detectCodeIssues(code);
+        if (issues.length > 0) {
+            issues.forEach(msg => this.sendTelemetry({
+                timestamp: Date.now(),
+                type: 'error',
+                content: msg
+            }));
+            this.updateStatus(SerialStatus.ERROR);
+            return;
+        }
+
         // Inicia simulação de telemetria
         this.startMockTelemetry();
     }
@@ -243,6 +255,41 @@ class MockSerialBridge implements ISerialBridge {
             }
 
         }, 1000);
+    }
+
+    /**
+     * Valida rapidamente o código gerado para detectar erros comuns de template
+     * e avisar no console do modo mock, simulando erros do MicroPython.
+     */
+    private detectCodeIssues(code: string): string[] {
+        const issues: string[] = [];
+
+        const hasHandlebars = /\{\{[^}]+\}\}/.test(code);
+        if (hasHandlebars) {
+            issues.push('Mock: Código contém placeholders não resolvidos ({{...}}).');
+        }
+
+        const hasBlockMarkers = /\{\{#if|\{\{\/if\}\}/.test(code);
+        if (hasBlockMarkers) {
+            issues.push('Mock: Blocos condicionais {{#if}} não foram removidos.');
+        }
+
+        const hasLowerBooleans = /\btrue\b|\bfalse\b/.test(code);
+        if (hasLowerBooleans) {
+            issues.push('Mock: Booleanos minúsculos detectados (true/false). Use True/False.');
+        }
+
+        const hasJsOps = /\?\s*['"]|===/.test(code);
+        if (hasJsOps) {
+            issues.push('Mock: Encontrada sintaxe JavaScript em template (?: ou ===).');
+        }
+
+        // Dica rápida para rastrear origem
+        if (issues.length > 0) {
+            issues.push('Mock: revise o transpiler ou o driver gerado antes de enviar ao hardware.');
+        }
+
+        return issues;
     }
 }
 
