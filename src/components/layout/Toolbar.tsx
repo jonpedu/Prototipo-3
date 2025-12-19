@@ -14,7 +14,6 @@ import {
     WifiOff,
     Upload,
     Play,
-    Trash2,
     Satellite,
     Save,
     FolderOpen,
@@ -33,7 +32,6 @@ export const Toolbar: React.FC = () => {
         connectSerial,
         disconnectSerial,
         uploadCode,
-        clearTelemetry,
         saveMission,
         loadMission,
         clearCanvas,
@@ -238,18 +236,9 @@ export const Toolbar: React.FC = () => {
                         disabled={!isConnected || nodes.length === 0 || serialStatus === SerialStatus.UPLOADING}
                     >
                         {isRunning ? <Play className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
-                        {isRunning ? 'Reiniciar' : 'Upload'}
+                        {isRunning ? 'Reiniciar' : 'Enviar'}
                     </Button>
                 </div>
-
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearTelemetry}
-                    title="Limpar console"
-                >
-                    <Trash2 className="w-4 h-4" />
-                </Button>
             </div>
         </div>
     );

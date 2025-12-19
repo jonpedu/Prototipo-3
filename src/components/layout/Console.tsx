@@ -5,7 +5,8 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useOrbitaStore } from '../../store/useStore';
-import { Minus } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Minus, Trash2 } from 'lucide-react';
 
 export const Console: React.FC<{ onMinimize?: () => void; hideHeaderMinimize?: boolean }> = ({ onMinimize, hideHeaderMinimize }) => {
     const { telemetryMessages, isConsoleOpen, clearTelemetry } = useOrbitaStore();
@@ -41,12 +42,14 @@ export const Console: React.FC<{ onMinimize?: () => void; hideHeaderMinimize?: b
                         />
                         Auto-scroll
                     </label>
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={clearTelemetry}
-                        className="px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:border-gray-600 text-gray-300"
+                        title="Limpar console"
                     >
-                        Limpar
-                    </button>
+                        <Trash2 className="w-4 h-4" />
+                    </Button>
                     {onMinimize && !hideHeaderMinimize && (
                         <button
                             onClick={onMinimize}
